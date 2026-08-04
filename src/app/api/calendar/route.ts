@@ -73,3 +73,70 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to create event in MongoDB" }, { status: 500 });
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, _id, ...updateFields } = body;
+    const targetId = id || _id;
+
+    if (!targetId) {
+      return NextResponse.json({ error: "Event ID is required for update" }, { status: 400 });
+    }
+
+    const db = await connectToDatabase();
+    if (!db) {
+      return NextResponse.json({ error: "Database connection unavailable" }, { status: 503 });
+    }
+
+    const updated = await Event.findByIdAndUpdate(
+      targetId,
+      { $set: updateFields },
+      { new: true }
+    ).lean();
+
+    if (!updated) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      ...updated,
+      id: updated._id.toString(),
+    });
+  } catch (error: any) {
+    console.error("PUT /api/calendar error:", error?.message || error);
+    return NextResponse.json({ error: "Failed to update event in MongoDB" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    let targetId = searchParams.get("id");
+
+    if (!targetId) {
+      const body = await req.json().catch(() => ({}));
+      targetId = body.id || body._id;
+    }
+
+    if (!targetId) {
+      return NextResponse.json({ error: "Event ID is required for deletion" }, { status: 400 });
+    }
+
+    const db = await connectToDatabase();
+    if (!db) {
+      return NextResponse.json({ error: "Database connection unavailable" }, { status: 503 });
+    }
+
+    const deleted = await Event.findByIdAndDelete(targetId);
+
+    if (!deleted) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: "Event deleted successfully" });
+  } catch (error: any) {
+    console.error("DELETE /api/calendar error:", error?.message || error);
+    return NextResponse.json({ error: "Failed to delete event from MongoDB" }, { status: 500 });
+  }
+}

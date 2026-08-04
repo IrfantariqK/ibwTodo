@@ -12,8 +12,6 @@ import {
   Calendar as CalendarIcon,
   Clock,
   MapPin,
-  Globe,
-  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProject } from "@/context/ProjectContext";
@@ -37,6 +35,7 @@ export const CalendarView: React.FC = () => {
   const { activeProject } = useProject();
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEventItem | null>(null);
 
   // Real-time Date & Month Navigation state
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -51,7 +50,6 @@ export const CalendarView: React.FC = () => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     setTimeZone(tz);
 
-    // Format location display name from timezone string (e.g. Asia/Karachi -> Karachi, Asia)
     if (tz.includes("/")) {
       const parts = tz.split("/");
       const city = parts[parts.length - 1].replace(/_/g, " ");
@@ -105,6 +103,45 @@ export const CalendarView: React.FC = () => {
       }
     } catch (err) {
       console.warn("Error posting event:", err);
+    }
+  };
+
+  const handleUpdateEvent = async (updatedEvent: CalendarEventItem) => {
+    const eventId = updatedEvent.id || updatedEvent._id;
+    if (!eventId) return;
+
+    try {
+      const res = await fetch("/api/calendar", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...updatedEvent,
+          id: eventId,
+        }),
+      });
+      if (res.ok) {
+        await fetchEvents();
+        setEditingEvent(null);
+        setIsModalOpen(false);
+      }
+    } catch (err) {
+      console.warn("Error updating event:", err);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!eventId) return;
+    if (!confirm("Are you sure you want to delete this event?")) return;
+
+    try {
+      const res = await fetch(`/api/calendar?id=${encodeURIComponent(eventId)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        await fetchEvents();
+      }
+    } catch (err) {
+      console.warn("Error deleting event:", err);
     }
   };
 
@@ -210,11 +247,14 @@ export const CalendarView: React.FC = () => {
             Next
           </Button>
           <Button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setEditingEvent(null);
+              setIsModalOpen(true);
+            }}
             variant="primary"
             size="sm"
             icon={<Plus className="w-4 h-4 stroke-[3]" />}
-            className="rounded-xl bg-[#006858] hover:bg-[#005245]"
+            className="rounded-xl bg-[#006858] hover:bg-[#005245] cursor-pointer"
           >
             Add Event
           </Button>
@@ -249,7 +289,7 @@ export const CalendarView: React.FC = () => {
 
               const dayEvents = events.filter((e) => e.date === dayStr);
 
-              // REAL-TIME TODAY CHECK: Green highlight ONLY on actual today's date!
+              // REAL-TIME TODAY CHECK
               const isToday = day === realDay && month === realMonth && year === realYear;
 
               return (
@@ -285,7 +325,11 @@ export const CalendarView: React.FC = () => {
                     {dayEvents.map((evt) => (
                       <div
                         key={evt.id || evt._id}
-                        className="text-[10px] truncate px-1.5 py-0.5 rounded bg-white text-[#006858] border border-[#006858]/20 font-bold shadow-2xs"
+                        onClick={() => {
+                          setEditingEvent(evt);
+                          setIsModalOpen(true);
+                        }}
+                        className="text-[10px] truncate px-1.5 py-0.5 rounded bg-white text-[#006858] border border-[#006858]/20 font-bold shadow-2xs cursor-pointer hover:bg-emerald-50"
                         title={evt.title}
                       >
                         {evt.title}
@@ -312,14 +356,27 @@ export const CalendarView: React.FC = () => {
               <div className="py-10 text-center text-xs text-slate-400 font-bold space-y-1">
                 <p>No events scheduled for this project.</p>
                 <button
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={() => {
+                    setEditingEvent(null);
+                    setIsModalOpen(true);
+                  }}
                   className="text-[#006858] underline font-extrabold cursor-pointer"
                 >
                   + Add New Event
                 </button>
               </div>
             ) : (
-              events.map((evt) => <EventCard key={evt.id || evt._id} event={evt} />)
+              events.map((evt) => (
+                <EventCard
+                  key={evt.id || evt._id}
+                  event={evt}
+                  onEdit={(selectedEvt) => {
+                    setEditingEvent(selectedEvt);
+                    setIsModalOpen(true);
+                  }}
+                  onDelete={handleDeleteEvent}
+                />
+              ))
             )}
           </div>
         </div>
@@ -327,8 +384,13 @@ export const CalendarView: React.FC = () => {
 
       <AddEventModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingEvent(null);
+        }}
         onAddEvent={handleAddEvent}
+        onEditEvent={handleUpdateEvent}
+        editEventData={editingEvent}
       />
     </div>
   );

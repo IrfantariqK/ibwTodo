@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ModalWrapper } from "@/components/ui/ModalWrapper";
 import { Button } from "@/components/ui/Button";
 import { EventItem } from "@/types";
@@ -10,12 +10,16 @@ interface AddEventModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddEvent: (event: EventItem) => void;
+  onEditEvent?: (event: EventItem) => void;
+  editEventData?: EventItem | null;
 }
 
 export const AddEventModal: React.FC<AddEventModalProps> = ({
   isOpen,
   onClose,
   onAddEvent,
+  onEditEvent,
+  editEventData,
 }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -26,6 +30,24 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
   const [aiLoadingTitle, setAiLoadingTitle] = useState(false);
   const [aiLoadingDesc, setAiLoadingDesc]   = useState(false);
+
+  useEffect(() => {
+    if (editEventData) {
+      setTitle(editEventData.title || "");
+      setDescription(editEventData.description || "");
+      setDate(editEventData.date || new Date().toISOString().split("T")[0]);
+      setStartTime(editEventData.startTime || editEventData.time || "10:00 AM");
+      setEndTime(editEventData.endTime || "11:00 AM");
+      setCategory(editEventData.category || editEventData.type || "meeting");
+    } else {
+      setTitle("");
+      setDescription("");
+      setDate(new Date().toISOString().split("T")[0]);
+      setStartTime("10:00 AM");
+      setEndTime("11:00 AM");
+      setCategory("meeting");
+    }
+  }, [editEventData, isOpen]);
 
   const getAiConfig = () => {
     try {
@@ -77,8 +99,8 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
     e.preventDefault();
     if (!title.trim()) return;
 
-    onAddEvent({
-      id: `evt-${Date.now()}`,
+    const eventPayload: EventItem = {
+      id: editEventData ? (editEventData.id || editEventData._id || `evt-${Date.now()}`) : `evt-${Date.now()}`,
       title: title.trim(),
       time: startTime,
       type: (category as any) || "meeting",
@@ -87,8 +109,14 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       startTime,
       endTime,
       category,
-      attendees: ["Alex Rivera", "Irfan Tariq"],
-    });
+      attendees: editEventData?.attendees || ["Alex Rivera", "Irfan Tariq"],
+    };
+
+    if (editEventData && onEditEvent) {
+      onEditEvent(eventPayload);
+    } else {
+      onAddEvent(eventPayload);
+    }
 
     setTitle("");
     setDescription("");
@@ -96,7 +124,11 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   };
 
   return (
-    <ModalWrapper isOpen={isOpen} onClose={onClose} title="Schedule New Meeting / Event">
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      title={editEventData ? "Edit Meeting / Event" : "Schedule New Meeting / Event"}
+    >
       <form onSubmit={handleSubmit} className="space-y-4 font-sans text-xs">
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -105,7 +137,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
               type="button"
               onClick={handleAiTitle}
               disabled={aiLoadingTitle}
-              className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[9px] font-extrabold flex items-center gap-1 border border-emerald-200"
+              className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[9px] font-extrabold flex items-center gap-1 border border-emerald-200 cursor-pointer"
             >
               <Wand2 className={`w-2.5 h-2.5 ${aiLoadingTitle ? "animate-spin" : ""}`} />
               {aiLoadingTitle ? "Suggesting..." : "✨ AI Suggest Title"}
@@ -143,6 +175,9 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
               <option value="demo">Demo</option>
               <option value="sync">Sync</option>
               <option value="deadline">Deadline</option>
+              <option value="standup">Standup</option>
+              <option value="review">Review</option>
+              <option value="sprint">Sprint</option>
             </select>
           </div>
         </div>
@@ -177,7 +212,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
               type="button"
               onClick={handleAiDescription}
               disabled={aiLoadingDesc}
-              className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[9px] font-extrabold flex items-center gap-1 border border-emerald-200"
+              className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[9px] font-extrabold flex items-center gap-1 border border-emerald-200 cursor-pointer"
             >
               <Sparkles className={`w-2.5 h-2.5 ${aiLoadingDesc ? "animate-spin" : ""}`} />
               {aiLoadingDesc ? "Drafting..." : "✨ AI Draft Agenda"}
@@ -196,8 +231,8 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" className="bg-[#006858] hover:bg-[#005245]">
-            Save Event
+          <Button type="submit" variant="primary" className="bg-[#006858] hover:bg-[#005245] cursor-pointer">
+            {editEventData ? "Update Event" : "Save Event"}
           </Button>
         </div>
       </form>
