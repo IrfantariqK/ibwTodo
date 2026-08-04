@@ -144,6 +144,15 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const selectedPriority = priorities.find((p) => p.value === priority)!;
   const selectedStatus   = statuses.find((s) => s.value === status)!;
 
+  // Helper to read AI config saved in Settings
+  const getAiConfig = () => {
+    try {
+      const saved = localStorage.getItem("taskconnect_ai_config");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  };
+
   // AI Handlers
   const handleAiTitle = async () => {
     setAiLoadingTitle(true);
@@ -151,7 +160,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "task_title", prompt: title || category || "dashboard design" }),
+        body: JSON.stringify({ type: "task_title", prompt: title || category || "dashboard design", aiConfig: getAiConfig() }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -170,7 +179,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "task_description", prompt: title || description || "web app feature" }),
+        body: JSON.stringify({ type: "task_description", prompt: title || description || "web app feature", aiConfig: getAiConfig() }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -189,7 +198,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "task_annotation", prompt: attName || title || "screenshot review" }),
+        body: JSON.stringify({ type: "task_annotation", prompt: attName || title || "screenshot review", aiConfig: getAiConfig() }),
       });
       if (res.ok) {
         const data = await res.json();

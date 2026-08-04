@@ -27,13 +27,21 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const [aiLoadingTitle, setAiLoadingTitle] = useState(false);
   const [aiLoadingDesc, setAiLoadingDesc]   = useState(false);
 
+  const getAiConfig = () => {
+    try {
+      const saved = localStorage.getItem("taskconnect_ai_config");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  };
+
   const handleAiTitle = async () => {
     setAiLoadingTitle(true);
     try {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "event_title", prompt: title || category || "sprint review" }),
+        body: JSON.stringify({ type: "event_title", prompt: title || category || "sprint review", aiConfig: getAiConfig() }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -52,7 +60,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "event_description", prompt: title || description || "project meeting" }),
+        body: JSON.stringify({ type: "event_description", prompt: title || description || "project meeting", aiConfig: getAiConfig() }),
       });
       if (res.ok) {
         const data = await res.json();

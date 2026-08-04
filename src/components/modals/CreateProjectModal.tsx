@@ -322,10 +322,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                                 onClick={async () => {
                                   setAiLoadingName(true);
                                   try {
+                                    let savedAi = null;
+                                    try { savedAi = JSON.parse(localStorage.getItem("taskconnect_ai_config") || ""); } catch (e) {}
                                     const res = await fetch("/api/ai/generate", {
                                       method: "POST",
                                       headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ type: "project_name", prompt: name || "nexus enterprise portal" }),
+                                      body: JSON.stringify({ type: "project_name", prompt: name || "nexus enterprise portal", aiConfig: savedAi }),
                                     });
                                     if (res.ok) {
                                       const data = await res.json();
@@ -377,10 +379,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                               onClick={async () => {
                                 setAiLoadingDesc(true);
                                 try {
+                                  let savedAi = null;
+                                  try { savedAi = JSON.parse(localStorage.getItem("taskconnect_ai_config") || ""); } catch (e) {}
                                   const res = await fetch("/api/ai/generate", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ type: "project_description", prompt: name || description || "enterprise app" }),
+                                    body: JSON.stringify({ type: "project_description", prompt: name || description || "enterprise app", aiConfig: savedAi }),
                                   });
                                   if (res.ok) {
                                     const data = await res.json();
