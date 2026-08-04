@@ -6,14 +6,14 @@ import {
   Zap,
   TrendingUp,
   Plus,
-  SlidersHorizontal,
   Video,
   Sparkles,
   Calendar,
   CheckCircle,
   Inbox,
-  Activity as ActivityIcon,
   FolderPlus,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
 import { TaskItem, EventItem } from "@/types";
 import { Badge } from "@/components/ui/Badge";
@@ -168,7 +168,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             variant="primary"
             size="md"
             icon={<Plus className="w-4 h-4" />}
-            className="rounded-xl shadow-md bg-[#006858] hover:bg-[#005245]"
+            className="rounded-xl shadow-md bg-[#006858] hover:bg-[#005245] cursor-pointer"
           >
             New Task
           </Button>
@@ -180,7 +180,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               variant="outline"
               size="md"
               icon={<FolderPlus className="w-4 h-4 text-[#006858]" />}
-              className="rounded-xl text-slate-700 hover:bg-slate-100 font-bold"
+              className="rounded-xl text-slate-700 hover:bg-slate-100 font-bold cursor-pointer"
             >
               New Project
             </Button>
@@ -294,78 +294,80 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
           </div>
 
-          {mongoProjects.length === 0 ? (
-            <div className="modern-card rounded-3xl p-8 bg-white border border-slate-200/90 text-center flex flex-col items-center justify-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006858] flex items-center justify-center">
-                <Inbox className="w-6 h-6" />
-              </div>
-              <h4 className="font-extrabold text-slate-800 text-sm">No Projects in MongoDB Database</h4>
-              <p className="text-xs text-slate-500 max-w-sm">
-                {isLeader
-                  ? "Add a new project to track progress, team members, and status live in your database."
-                  : "You have not been assigned to any project yet."}
-              </p>
-              {isLeader && (
-                <Button onClick={() => setIsProjectModalOpen(true)} size="sm" className="bg-[#006858] hover:bg-[#005245] rounded-xl font-bold">
-                  + Create First Project
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[360px] overflow-y-auto pr-1">
-              {mongoProjects.map((proj: any, idx: number) => (
-                <div
-                  key={proj._id || idx}
-                  onClick={() => {
-                    if (isLeader) {
-                      setSelectedProject(proj);
-                      setIsEditProjectModalOpen(true);
-                    }
-                  }}
-                  className={`modern-card rounded-3xl p-5 bg-white border border-slate-200/90 shadow-sm transition-all space-y-4 group ${
-                    isLeader ? "hover:shadow-md hover:border-[#006858]/40 cursor-pointer" : "cursor-default"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#006858] flex items-center justify-center font-bold group-hover:scale-105 transition-transform">
-                      <Sparkles className="w-5 h-5" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isLeader && (
-                        <span className="text-[10px] font-extrabold text-[#006858] opacity-0 group-hover:opacity-100 transition-opacity">
-                          Click to Edit ✏️
-                        </span>
-                      )}
-                      <Badge variant={proj.status === "In Progress" ? "in-progress" : "planning"}>
-                        {proj.status}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className={`font-bold text-[#0F172A] text-base transition-colors ${isLeader ? "group-hover:text-[#006858]" : ""}`}>
-                      {proj.name}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">{proj.description}</p>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-slate-400">Progress</span>
-                      <span className="text-[#006858] font-mono">{proj.progress || 0}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                      <div
-                        className="bg-[#006858] h-full rounded-full transition-all duration-500"
-                        style={{ width: `${proj.progress || 0}%` }}
-                      />
-                    </div>
-                  </div>
+          <div className="modern-card rounded-3xl p-5 bg-white border border-slate-200/90 shadow-sm h-[320px] flex flex-col">
+            {mongoProjects.length === 0 ? (
+              <div className="my-auto text-center flex flex-col items-center justify-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006858] flex items-center justify-center">
+                  <Inbox className="w-6 h-6" />
                 </div>
-              ))}
-            </div>
-          )}
+                <h4 className="font-extrabold text-slate-800 text-sm">No Projects in MongoDB Database</h4>
+                <p className="text-xs text-slate-500 max-w-sm">
+                  {isLeader
+                    ? "Add a new project to track progress, team members, and status live in your database."
+                    : "You have not been assigned to any project yet."}
+                </p>
+                {isLeader && (
+                  <Button onClick={() => setIsProjectModalOpen(true)} size="sm" className="bg-[#006858] hover:bg-[#005245] rounded-xl font-bold cursor-pointer">
+                    + Create First Project
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto pr-1 flex-1">
+                {mongoProjects.map((proj: any, idx: number) => (
+                  <div
+                    key={proj._id || idx}
+                    onClick={() => {
+                      if (isLeader) {
+                        setSelectedProject(proj);
+                        setIsEditProjectModalOpen(true);
+                      }
+                    }}
+                    className={`modern-card rounded-3xl p-4 bg-slate-50/70 border border-slate-200/80 shadow-2xs transition-all space-y-3 group ${
+                      isLeader ? "hover:shadow-md hover:border-[#006858]/40 hover:bg-white cursor-pointer" : "cursor-default"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100/70 text-[#006858] flex items-center justify-center font-bold group-hover:scale-105 transition-transform">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isLeader && (
+                          <span className="text-[10px] font-extrabold text-[#006858] opacity-0 group-hover:opacity-100 transition-opacity">
+                            Edit ✏️
+                          </span>
+                        )}
+                        <Badge variant={proj.status === "In Progress" ? "in-progress" : "planning"}>
+                          {proj.status}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className={`font-bold text-[#0F172A] text-sm transition-colors ${isLeader ? "group-hover:text-[#006858]" : ""}`}>
+                        {proj.name}
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{proj.description}</p>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold mb-1">
+                        <span className="text-slate-400">Progress</span>
+                        <span className="text-[#006858] font-mono">{proj.progress || 0}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200/60 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-[#006858] h-full rounded-full transition-all duration-500"
+                          style={{ width: `${proj.progress || 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </motion.div>
 
         {/* Right Column: Upcoming Meetings */}
@@ -380,45 +382,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
 
-          <div className="modern-card rounded-3xl p-5 bg-white border border-slate-200/90 shadow-sm space-y-3">
+          <div className="modern-card rounded-3xl p-5 bg-white border border-slate-200/90 shadow-sm h-[320px] flex flex-col">
             {mongoMeetings.length === 0 ? (
-              <div className="py-8 text-center space-y-2">
+              <div className="my-auto text-center space-y-2">
                 <div className="w-10 h-10 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <p className="text-xs font-bold text-slate-700">No Meetings Scheduled</p>
-                <p className="text-[11px] text-slate-400">Your MongoDB Event collection is currently empty.</p>
+                <p className="text-[11px] text-slate-400">Your Event collection is currently empty.</p>
                 <button
                   onClick={() => onNavigateTab("calendar")}
-                  className="text-xs font-extrabold text-[#006858] hover:underline pt-1 block mx-auto"
+                  className="text-xs font-extrabold text-[#006858] hover:underline pt-1 block mx-auto cursor-pointer"
                 >
-                  Schedule Event
+                  + Schedule Event
                 </button>
               </div>
             ) : (
-              mongoMeetings.map((evt: EventItem) => (
-                <div
-                  key={evt.id || evt._id}
-                  className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between hover:bg-emerald-50/50 transition-colors"
-                >
-                  <div className="space-y-0.5">
-                    <h4 className="font-extrabold text-xs text-[#0F172A]">{evt.title}</h4>
-                    <p className="text-[10px] text-slate-400 font-medium">
-                      {evt.time} {evt.date ? `· ${evt.date}` : ""}
-                    </p>
+              <div className="space-y-2.5 overflow-y-auto flex-1 pr-0.5">
+                {mongoMeetings.map((evt: EventItem) => (
+                  <div
+                    key={evt.id || evt._id}
+                    className="p-3 rounded-2xl bg-slate-50/80 border border-slate-100 flex items-center justify-between hover:bg-emerald-50/60 transition-colors"
+                  >
+                    <div className="space-y-0.5 pr-2 truncate">
+                      <h4 className="font-extrabold text-xs text-[#0F172A] truncate">{evt.title}</h4>
+                      <p className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-[#006858]" />
+                        {evt.time || evt.startTime} {evt.date ? `· ${evt.date}` : ""}
+                      </p>
+                    </div>
+                    {evt.link ? (
+                      <a
+                        href={evt.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-[#006858] font-extrabold text-[10px] hover:bg-emerald-50 transition-colors flex items-center gap-1 shrink-0 shadow-2xs"
+                      >
+                        <Video className="w-3 h-3" /> Join
+                      </a>
+                    ) : (
+                      <span className="text-[10px] font-bold text-[#006858] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/50 shrink-0">
+                        {evt.category || "Meeting"}
+                      </span>
+                    )}
                   </div>
-                  {evt.link && (
-                    <a
-                      href={evt.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-[#006858] font-extrabold text-[11px] hover:bg-emerald-50 transition-colors flex items-center gap-1 shadow-2xs"
-                    >
-                      <Video className="w-3 h-3" /> Join
-                    </a>
-                  )}
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         </motion.div>
@@ -438,30 +447,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
 
-          <div className="modern-card rounded-3xl p-5 bg-white border border-slate-200/90 shadow-sm space-y-3">
+          <div className="modern-card rounded-3xl p-5 bg-white border border-slate-200/90 shadow-sm h-[280px] flex flex-col">
             {mongoUrgentTasks.length === 0 ? (
-              <div className="py-6 text-center text-xs font-bold text-slate-400 flex items-center justify-center gap-2">
+              <div className="my-auto text-center text-xs font-bold text-slate-400 flex items-center justify-center gap-2">
                 <CheckCircle className="w-4 h-4 text-emerald-500" />
                 <span>No urgent priority tasks pending in MongoDB Atlas!</span>
               </div>
             ) : (
-              mongoUrgentTasks.map((t: TaskItem) => (
-                <div
-                  key={t.id || t._id}
-                  onClick={() => onNavigateTab("kanban")}
-                  className="p-3.5 rounded-2xl bg-slate-50 hover:bg-emerald-50/50 transition-colors border border-slate-100 flex items-center justify-between cursor-pointer"
-                >
-                  <div className="space-y-1">
-                    <h4 className="font-extrabold text-xs text-[#0F172A]">{t.title}</h4>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full uppercase">
-                        {t.priority}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium">{t.status}</span>
+              <div className="space-y-2.5 overflow-y-auto flex-1 pr-0.5">
+                {mongoUrgentTasks.map((t: TaskItem) => (
+                  <div
+                    key={t.id || t._id}
+                    onClick={() => onNavigateTab("kanban")}
+                    className="p-3 rounded-2xl bg-slate-50/80 hover:bg-emerald-50/60 transition-colors border border-slate-100 flex items-center justify-between cursor-pointer"
+                  >
+                    <div className="space-y-1 truncate pr-2">
+                      <h4 className="font-extrabold text-xs text-[#0F172A] truncate">{t.title}</h4>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200/60 px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
+                          <AlertTriangle className="w-2.5 h-2.5" /> {t.priority}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">{t.status}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         </motion.div>
@@ -474,28 +485,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </h2>
           </div>
 
-          <div className="modern-card rounded-3xl p-5 bg-white border border-slate-200/90 shadow-sm space-y-3 max-h-[300px] overflow-y-auto">
+          <div className="modern-card rounded-3xl p-5 bg-white border border-slate-200/90 shadow-sm h-[280px] flex flex-col">
             {mongoPulseFeed.length === 0 ? (
-              <p className="text-xs font-medium text-slate-400 text-center py-4">
+              <p className="text-xs font-medium text-slate-400 text-center my-auto">
                 No recent activity logged in MongoDB.
               </p>
             ) : (
-              mongoPulseFeed.map((act: any, idx: number) => (
-                <div key={act._id || idx} className="flex items-start gap-3 text-xs">
-                  <img
-                    src={act.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(act.user || "User")}`}
-                    alt={act.user}
-                    className="w-7 h-7 rounded-full object-cover bg-emerald-50 mt-0.5 shrink-0"
-                  />
-                  <div>
-                    <p className="font-bold text-slate-800">
-                      {act.user} <span className="font-medium text-slate-600">{act.action}</span>{" "}
-                      <strong className="text-[#006858] font-bold">{act.target}</strong>
-                    </p>
-                    <p className="text-[9px] text-slate-400 font-medium">{act.timestamp}</p>
+              <div className="space-y-3 overflow-y-auto flex-1 pr-0.5">
+                {mongoPulseFeed.map((act: any, idx: number) => (
+                  <div key={act._id || idx} className="flex items-start gap-3 text-xs border-b border-slate-50 pb-2 last:border-0 last:pb-0">
+                    <img
+                      src={act.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(act.user || "User")}`}
+                      alt={act.user}
+                      className="w-7 h-7 rounded-full object-cover bg-emerald-50 mt-0.5 shrink-0 border border-slate-100"
+                    />
+                    <div>
+                      <p className="font-bold text-slate-800 text-[11px]">
+                        {act.user} <span className="font-medium text-slate-600">{act.action}</span>{" "}
+                        <strong className="text-[#006858] font-bold">{act.target}</strong>
+                      </p>
+                      <p className="text-[9px] text-slate-400 font-medium">{act.timestamp || act.timeAgo || "Just now"}</p>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         </motion.div>
