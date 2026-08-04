@@ -68,16 +68,29 @@ export async function POST(req: Request) {
       );
     }
 
+    const isClient = userDoc.type === "client" || userDoc.role?.toLowerCase().includes("client");
+    const isTeam = userDoc.type === "team" || userDoc.role?.toLowerCase().includes("team");
+
+    let userType = "leader";
+    let userRole = "Leader";
+
+    if (isClient) {
+      userType = "client";
+      userRole = userDoc.role || "Client";
+    } else if (isTeam) {
+      userType = "team";
+      userRole = userDoc.role || "Team Member";
+    } else {
+      userType = userDoc.type || "leader";
+      userRole = userDoc.role || "Leader";
+    }
+
     // Sign a JWT token with the real user's details from MongoDB
     const token = jwt.sign(
-      { userId: userDoc._id.toString(), email: userDoc.email, name: userDoc.name, role: userDoc.role },
+      { userId: userDoc._id.toString(), email: userDoc.email, name: userDoc.name, role: userRole, type: userType },
       JWT_SECRET,
       { expiresIn: "30d" }
     );
-
-    const isClient = userDoc.type === "client" || userDoc.role?.toLowerCase().includes("client");
-    const userRole = isClient ? (userDoc.role || "Client") : "Leader";
-    const userType = isClient ? "client" : "leader";
 
     const userData = {
       id: userDoc._id.toString(),

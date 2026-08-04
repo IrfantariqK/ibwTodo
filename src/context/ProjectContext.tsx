@@ -48,12 +48,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
           // Determine typeVal from role if missing
           if (!typeVal) {
-            if (roleVal === "Leader" || roleVal === "leader") {
-              typeVal = "leader";
-            } else if (roleVal.toLowerCase().includes("client")) {
+            if (roleVal.toLowerCase().includes("client")) {
               typeVal = "client";
-            } else {
+            } else if (roleVal.toLowerCase().includes("team") || roleVal.toLowerCase().includes("member")) {
               typeVal = "team";
+            } else {
+              typeVal = "leader";
             }
           }
         } catch (e) {
@@ -73,7 +73,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         let filteredProjects: ProjectItem[] = allProjects;
 
         if (userEmail) {
-          // Check if user is a Client or Team Member in fetched projects
           const isAssignedAsClient = allProjects.some((p) =>
             p.clients?.some((c) => c.email?.toLowerCase().trim() === userEmail)
           );
@@ -81,7 +80,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
             p.teamMembers?.some((m) => m.email?.toLowerCase().trim() === userEmail)
           );
 
-          const isLeader = typeVal === "leader" || roleVal === "Leader";
+          const isLeader = typeVal === "leader" || roleVal === "Leader" || (!isAssignedAsClient && !isAssignedAsTeam && typeVal !== "client" && typeVal !== "team");
 
           if (typeVal === "client" || (isAssignedAsClient && !isLeader)) {
             // CLIENT: View ONLY projects where assigned as client
@@ -93,12 +92,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
             filteredProjects = allProjects.filter((p) =>
               p.teamMembers?.some((m) => m.email?.toLowerCase().trim() === userEmail)
             );
-          } else if (!isLeader) {
-            filteredProjects = allProjects.filter((p) => {
-              const inClient = p.clients?.some((c) => c.email?.toLowerCase().trim() === userEmail);
-              const inTeam = p.teamMembers?.some((m) => m.email?.toLowerCase().trim() === userEmail);
-              return inClient || inTeam;
-            });
           }
         }
 

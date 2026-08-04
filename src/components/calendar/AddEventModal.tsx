@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ModalWrapper } from "@/components/ui/ModalWrapper";
 import { Button } from "@/components/ui/Button";
 import { EventItem } from "@/types";
+import { Sparkles, Wand2 } from "lucide-react";
 
 interface AddEventModalProps {
   isOpen: boolean;
@@ -22,6 +23,47 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const [startTime, setStartTime] = useState("10:00 AM");
   const [endTime, setEndTime] = useState("11:00 AM");
   const [category, setCategory] = useState<string>("meeting");
+
+  const [aiLoadingTitle, setAiLoadingTitle] = useState(false);
+  const [aiLoadingDesc, setAiLoadingDesc]   = useState(false);
+
+  const handleAiTitle = async () => {
+    setAiLoadingTitle(true);
+    try {
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "event_title", prompt: title || category || "sprint review" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result) setTitle(data.result);
+      }
+    } catch (err) {
+      console.warn("AI event title error:", err);
+    } finally {
+      setAiLoadingTitle(false);
+    }
+  };
+
+  const handleAiDescription = async () => {
+    setAiLoadingDesc(true);
+    try {
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "event_description", prompt: title || description || "project meeting" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result) setDescription(data.result);
+      }
+    } catch (err) {
+      console.warn("AI event description error:", err);
+    } finally {
+      setAiLoadingDesc(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +91,18 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
     <ModalWrapper isOpen={isOpen} onClose={onClose} title="Schedule New Meeting / Event">
       <form onSubmit={handleSubmit} className="space-y-4 font-sans text-xs">
         <div>
-          <label className="font-bold text-slate-700 block mb-1">Event Title</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="font-bold text-slate-700 block">Event Title</label>
+            <button
+              type="button"
+              onClick={handleAiTitle}
+              disabled={aiLoadingTitle}
+              className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[9px] font-extrabold flex items-center gap-1 border border-emerald-200"
+            >
+              <Wand2 className={`w-2.5 h-2.5 ${aiLoadingTitle ? "animate-spin" : ""}`} />
+              {aiLoadingTitle ? "Suggesting..." : "✨ AI Suggest Title"}
+            </button>
+          </div>
           <input
             type="text"
             required
@@ -110,13 +163,24 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
         </div>
 
         <div>
-          <label className="font-bold text-slate-700 block mb-1">Description (Optional)</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="font-bold text-slate-700 block">Description (Optional)</label>
+            <button
+              type="button"
+              onClick={handleAiDescription}
+              disabled={aiLoadingDesc}
+              className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[9px] font-extrabold flex items-center gap-1 border border-emerald-200"
+            >
+              <Sparkles className={`w-2.5 h-2.5 ${aiLoadingDesc ? "animate-spin" : ""}`} />
+              {aiLoadingDesc ? "Drafting..." : "✨ AI Draft Agenda"}
+            </button>
+          </div>
           <textarea
-            rows={2}
+            rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Agenda or meeting link..."
-            className="w-full bg-slate-50 text-slate-900 font-bold p-2.5 rounded-xl border border-slate-200 focus:border-[#006858]"
+            className="w-full bg-slate-50 text-slate-900 font-bold p-2.5 rounded-xl border border-slate-200 focus:border-[#006858] resize-none"
           />
         </div>
 

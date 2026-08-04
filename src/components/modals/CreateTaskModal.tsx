@@ -22,6 +22,7 @@ import {
   Trash2,
   ImageIcon,
   CheckCircle2,
+  Wand2,
 } from "lucide-react";
 import { TaskItem, TaskAttachment } from "@/types";
 
@@ -31,13 +32,12 @@ interface CreateTaskModalProps {
   onCreateTask: (task: TaskItem) => void;
 }
 
-// ── uploading item tracked separately ──
 interface UploadingFile {
   id: string;
   name: string;
   type: string;
   size: number;
-  progress: number;   // 0-100
+  progress: number;
   done: boolean;
 }
 
@@ -91,7 +91,6 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-// Simulate animated progress (0 → ~85% fast, then waits for real read, then jumps to 100)
 function simulateProgress(
   id: string,
   setUploading: React.Dispatch<React.SetStateAction<UploadingFile[]>>
@@ -125,6 +124,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
   const [fileError, setFileError]       = useState("");
   const [loading, setLoading]           = useState(false);
   const [activeTab, setActiveTab]       = useState<"details" | "attachments">("details");
+
+  // AI loading states
+  const [aiLoadingTitle, setAiLoadingTitle] = useState(false);
+  const [aiLoadingDesc, setAiLoadingDesc]   = useState(false);
+  const [aiLoadingAnn, setAiLoadingAnn]   = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -138,6 +143,66 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
   const selectedPriority = priorities.find((p) => p.value === priority)!;
   const selectedStatus   = statuses.find((s) => s.value === status)!;
+
+  // AI Handlers
+  const handleAiTitle = async () => {
+    setAiLoadingTitle(true);
+    try {
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "task_title", prompt: title || category || "dashboard design" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result) setTitle(data.result);
+      }
+    } catch (err) {
+      console.warn("AI title generation error:", err);
+    } finally {
+      setAiLoadingTitle(false);
+    }
+  };
+
+  const handleAiDescription = async () => {
+    setAiLoadingDesc(true);
+    try {
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "task_description", prompt: title || description || "web app feature" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result) setDescription(data.result);
+      }
+    } catch (err) {
+      console.warn("AI description generation error:", err);
+    } finally {
+      setAiLoadingDesc(false);
+    }
+  };
+
+  const handleAiAnnotation = async (attId: string, attName: string) => {
+    setAiLoadingAnn(attId);
+    try {
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "task_annotation", prompt: attName || title || "screenshot review" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result) {
+          setAttachments((prev) => prev.map((a) => (a.id === attId ? { ...a, comment: data.result } : a)));
+        }
+      }
+    } catch (err) {
+      console.warn("AI annotation error:", err);
+    } finally {
+      setAiLoadingAnn(null);
+    }
+  };
 
   const processFiles = useCallback(async (files: FileList | File[]) => {
     setFileError("");
@@ -155,26 +220,19 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 
       const id = `att-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-      // Add to uploading list immediately
       setUploading((prev) => [
         ...prev,
         { id, name: file.name, type: file.type, size: file.size, progress: 0, done: false },
       ]);
       setActiveTab("attachments");
 
-      // Start fake progress animation
       const stop = simulateProgress(id, setUploading);
-
-      // Actually read file
       const base64 = await fileToBase64(file);
       stop();
 
-      // Jump to 100% then mark done
       setUploading((prev) => prev.map((f) => (f.id === id ? { ...f, progress: 100 } : f)));
+      await new Promise((r) => setTimeout(r, 500));
 
-      await new Promise((r) => setTimeout(r, 500)); // pause at 100% so user sees it
-
-      // Promote from "uploading" to "attachments"
       setUploading((prev) => prev.filter((f) => f.id !== id));
       setAttachments((prev) => [
         ...prev,
@@ -272,8 +330,6 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 className="relative px-6 pt-6 pb-4 shrink-0"
                 style={{ backgroundImage: "linear-gradient(135deg,#004d40 0%,#00897b 100%)" }}
               >
-                <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/5" />
-                <div className="absolute top-2 right-12 w-12 h-12 rounded-full bg-white/5" />
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center">
@@ -282,7 +338,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                     <div>
                       <h2 className="text-base font-black text-white">Create New Task</h2>
                       <p className="text-[11px] text-white/60 font-medium">
-                        Save to MongoDB Atlas · Attach screenshots & files
+                        Save to MongoDB Atlas · AI Title & Description Assistant
                       </p>
                     </div>
                   </div>
@@ -332,12 +388,23 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                         exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}
                         className="p-6 space-y-5"
                       >
-                        {/* Title */}
+                        {/* Title with AI Assistant Button */}
                         <div className="space-y-1.5">
-                          <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                            <CheckSquare className="w-3.5 h-3.5" />
-                            Task Title <span className="text-red-500">*</span>
-                          </label>
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                              <CheckSquare className="w-3.5 h-3.5" />
+                              Task Title <span className="text-red-500">*</span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={handleAiTitle}
+                              disabled={aiLoadingTitle}
+                              className="px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[10px] font-extrabold flex items-center gap-1 border border-emerald-200 transition-colors"
+                            >
+                              <Wand2 className={`w-3 h-3 ${aiLoadingTitle ? "animate-spin" : ""}`} />
+                              {aiLoadingTitle ? "Generating..." : "✨ AI Suggest Title"}
+                            </button>
+                          </div>
                           <input type="text" required autoFocus value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="e.g. Redesign the onboarding flow"
@@ -345,12 +412,23 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                           />
                         </div>
 
-                        {/* Description */}
+                        {/* Description with AI Assistant Button */}
                         <div className="space-y-1.5">
-                          <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                            <AlignLeft className="w-3.5 h-3.5" />Description
-                          </label>
-                          <textarea rows={3} value={description}
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                              <AlignLeft className="w-3.5 h-3.5" />Description
+                            </label>
+                            <button
+                              type="button"
+                              onClick={handleAiDescription}
+                              disabled={aiLoadingDesc}
+                              className="px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[10px] font-extrabold flex items-center gap-1 border border-emerald-200 transition-colors"
+                            >
+                              <Sparkles className={`w-3 h-3 ${aiLoadingDesc ? "animate-spin" : ""}`} />
+                              {aiLoadingDesc ? "Writing..." : "✨ AI Generate Description"}
+                            </button>
+                          </div>
+                          <textarea rows={4} value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="What needs to be done? Add detailed requirements..."
                             className="w-full bg-slate-50 text-slate-900 font-medium text-sm px-4 py-3 rounded-2xl border border-slate-200 focus:border-[#006858] focus:outline-none focus:ring-2 focus:ring-[#006858]/20 transition-all placeholder:text-slate-400 placeholder:font-normal resize-none"
@@ -442,17 +520,6 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                             </span>
                           )}
                         </button>
-
-                        {/* Summary badge */}
-                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold border"
-                          style={{ backgroundColor: selectedPriority.bg, borderColor: selectedPriority.border, color: selectedPriority.color }}
-                        >
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: selectedPriority.color }} />
-                          {selectedPriority.label} Priority · {selectedStatus.label}
-                          {title && (
-                            <span className="ml-auto text-slate-500 font-medium truncate max-w-[160px]">"{title}"</span>
-                          )}
-                        </div>
                       </motion.div>
                     )}
 
@@ -493,199 +560,50 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                                 Screenshots, PDFs, Word, Excel, images · Max {MAX_FILE_SIZE_MB}MB per file
                               </p>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap justify-center">
-                              {[
-                                { icon: <ImageIcon       className="w-3.5 h-3.5 text-sky-500" />,     label: "Images" },
-                                { icon: <FileText        className="w-3.5 h-3.5 text-red-500" />,     label: "PDF"    },
-                                { icon: <FileText        className="w-3.5 h-3.5 text-blue-600" />,    label: "Word"   },
-                                { icon: <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />, label: "Excel"  },
-                              ].map((t) => (
-                                <span key={t.label} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-[11px] font-bold text-slate-500">
-                                  {t.icon} {t.label}
-                                </span>
-                              ))}
-                            </div>
                           </div>
                         </div>
 
-                        {/* File error */}
-                        <AnimatePresence>
-                          {fileError && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="px-4 py-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold"
-                            >
-                              ⚠ {fileError}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-
-                        {/* ── UPLOADING PROGRESS CARDS ── */}
-                        <AnimatePresence>
-                          {uploading.map((uf) => (
-                            <motion.div key={uf.id}
-                              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.95 }}
-                              className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
-                            >
-                              {/* Top bar */}
-                              <div className="flex items-center gap-3 px-4 py-3">
-                                {/* Animated file icon */}
-                                <div className="relative w-10 h-10 shrink-0">
-                                  {/* Spinning ring */}
-                                  <svg className="absolute inset-0 w-10 h-10 -rotate-90" viewBox="0 0 40 40">
-                                    <circle cx="20" cy="20" r="17" fill="none" stroke="#e2e8f0" strokeWidth="3" />
-                                    <motion.circle
-                                      cx="20" cy="20" r="17" fill="none"
-                                      stroke="#006858" strokeWidth="3"
-                                      strokeLinecap="round"
-                                      strokeDasharray={`${2 * Math.PI * 17}`}
-                                      animate={{
-                                        strokeDashoffset: `${2 * Math.PI * 17 * (1 - uf.progress / 100)}`,
-                                      }}
-                                      transition={{ duration: 0.15, ease: "easeOut" }}
-                                    />
-                                  </svg>
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    {uf.progress < 100
-                                      ? <span className="text-[9px] font-black text-[#006858]">{Math.round(uf.progress)}%</span>
-                                      : <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }}>
-                                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                                        </motion.div>
-                                    }
-                                  </div>
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold text-slate-800 truncate">{uf.name}</p>
-                                  <p className="text-[10px] text-slate-400">{formatBytes(uf.size)}</p>
-                                </div>
-
-                                <div className={`text-[10px] font-black px-2.5 py-1 rounded-full transition-all ${
-                                  uf.progress >= 100
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-slate-100 text-slate-500"
-                                }`}>
-                                  {uf.progress >= 100 ? "✓ Done" : "Uploading..."}
-                                </div>
-                              </div>
-
-                              {/* Progress bar */}
-                              <div className="h-1.5 bg-slate-100 mx-4 mb-3 rounded-full overflow-hidden">
-                                <motion.div
-                                  className="h-full rounded-full"
-                                  style={{
-                                    backgroundImage: uf.progress >= 100
-                                      ? "linear-gradient(90deg,#22c55e,#16a34a)"
-                                      : "linear-gradient(90deg,#006858,#00897b,#43d4b8)",
-                                    backgroundSize: "200% 100%",
-                                  }}
-                                  animate={{
-                                    width: `${uf.progress}%`,
-                                    backgroundPosition: uf.progress < 100 ? ["0% 0%", "100% 0%"] : "0% 0%",
-                                  }}
-                                  transition={{
-                                    width: { duration: 0.15, ease: "easeOut" },
-                                    backgroundPosition: { duration: 1.5, repeat: Infinity, ease: "linear" },
-                                  }}
-                                />
-                              </div>
-
-                              {/* Shimmer row while loading */}
-                              {uf.progress < 100 && (
-                                <div className="px-4 pb-3">
-                                  <div className="h-2 bg-slate-100 rounded-full w-3/4 overflow-hidden">
-                                    <motion.div
-                                      className="h-full bg-gradient-to-r from-transparent via-slate-200 to-transparent"
-                                      animate={{ x: ["-100%", "200%"] }}
-                                      transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-
-                        {/* ── COMPLETED ATTACHMENTS ── */}
-                        {attachments.length === 0 && uploading.length === 0 ? (
-                          <div className="text-center py-6 text-xs text-slate-400 font-medium">
-                            No files attached yet. Upload screenshots or documents above.
-                          </div>
-                        ) : (
+                        {/* ── COMPLETED ATTACHMENTS WITH AI ANNOTATION ASSISTANT ── */}
+                        {attachments.length > 0 && (
                           <div className="space-y-4">
-                            {attachments.length > 0 && (
-                              <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                                {attachments.length} Uploaded · Add comments below each file
-                              </p>
-                            )}
+                            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                              {attachments.length} Uploaded · Add comments & AI annotations below
+                            </p>
                             {attachments.map((att, idx) => (
                               <motion.div key={att.id}
                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: idx * 0.04 }}
                                 className="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm"
                               >
-                                {/* Image Preview */}
                                 {att.type.startsWith("image/") && (
                                   <div className="relative bg-slate-900 max-h-48 overflow-hidden">
                                     <img src={att.data} alt={att.name}
                                       className="w-full object-contain max-h-48" />
-                                    <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm">
-                                      Screenshot #{idx + 1}
-                                    </div>
-                                    <div className="absolute top-2 right-2 bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-lg flex items-center gap-1">
-                                      <CheckCircle2 className="w-3 h-3" /> Uploaded
-                                    </div>
                                   </div>
                                 )}
 
-                                {/* Non-image file header */}
-                                {!att.type.startsWith("image/") && (
-                                  <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-100">
-                                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                                      {getFileIcon(att.type)}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-bold text-slate-800 truncate">{att.name}</p>
-                                      <p className="text-[10px] text-slate-400">{formatBytes(att.size)}</p>
-                                    </div>
-                                    <div className="flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full">
-                                      <CheckCircle2 className="w-3 h-3" /> Done
-                                    </div>
-                                    <button type="button" onClick={() => removeAttachment(att.id)}
-                                      className="w-7 h-7 rounded-xl bg-red-50 hover:bg-red-100 flex items-center justify-center transition-all">
-                                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                                    </button>
-                                  </div>
-                                )}
-
-                                {/* File meta row for images */}
-                                {att.type.startsWith("image/") && (
-                                  <div className="flex items-center gap-3 px-4 py-2 border-b border-slate-100">
-                                    <div className="w-5 h-5 shrink-0">{getFileIcon(att.type, 4)}</div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-[11px] font-bold text-slate-700 truncate">{att.name}</p>
-                                    </div>
-                                    <span className="text-[10px] text-slate-400">{formatBytes(att.size)}</span>
-                                    <button type="button" onClick={() => removeAttachment(att.id)}
-                                      className="w-7 h-7 rounded-xl bg-red-50 hover:bg-red-100 flex items-center justify-center transition-all">
-                                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                                    </button>
-                                  </div>
-                                )}
-
-                                {/* Per-file comment */}
+                                {/* Per-file comment with AI Annotation Generator */}
                                 <div className="p-3">
-                                  <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
-                                    <MessageSquare className="w-3 h-3" />
-                                    {att.type.startsWith("image/") ? "Annotation / What to change" : "Notes about this file"}
-                                  </label>
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                      <MessageSquare className="w-3 h-3" />
+                                      {att.type.startsWith("image/") ? "Annotation / What to change" : "Notes about this file"}
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAiAnnotation(att.id, att.name)}
+                                      disabled={aiLoadingAnn === att.id}
+                                      className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[9px] font-extrabold flex items-center gap-1 border border-emerald-200"
+                                    >
+                                      <Sparkles className={`w-2.5 h-2.5 ${aiLoadingAnn === att.id ? "animate-spin" : ""}`} />
+                                      {aiLoadingAnn === att.id ? "Writing..." : "✨ AI Suggest Annotation"}
+                                    </button>
+                                  </div>
                                   <textarea rows={2} value={att.comment}
                                     onChange={(e) => updateComment(att.id, e.target.value)}
                                     placeholder={
                                       att.type.startsWith("image/")
-                                        ? "e.g. Change the button colour to green, move the logo top-left..."
+                                        ? "e.g. Change button color to green, move logo top-left..."
                                         : "Add notes or instructions about this document..."
                                     }
                                     className="w-full bg-slate-50 text-slate-800 text-xs font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-[#006858] focus:outline-none focus:ring-2 focus:ring-[#006858]/20 transition-all placeholder:text-slate-300 resize-none"
@@ -717,20 +635,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                           <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                           Saving to MongoDB...
                         </>
-                      ) : uploading.length > 0 ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                          Waiting for uploads...
-                        </>
                       ) : (
                         <>
                           <CheckSquare className="w-4 h-4" />
                           Create Task
-                          {attachments.length > 0 && (
-                            <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                              + {attachments.length} file{attachments.length > 1 ? "s" : ""}
-                            </span>
-                          )}
                         </>
                       )}
                     </motion.button>

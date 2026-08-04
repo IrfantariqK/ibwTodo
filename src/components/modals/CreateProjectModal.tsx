@@ -60,6 +60,8 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [files, setFiles] = useState<ProjectFile[]>([]);
 
   const [loading, setLoading] = useState(false);
+  const [aiLoadingName, setAiLoadingName] = useState(false);
+  const [aiLoadingDesc, setAiLoadingDesc] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -311,9 +313,33 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                       >
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                              <Briefcase className="w-3.5 h-3.5" /> Project Name <span className="text-red-500">*</span>
-                            </label>
+                            <div className="flex items-center justify-between">
+                              <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                                <Briefcase className="w-3.5 h-3.5" /> Project Name <span className="text-red-500">*</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setAiLoadingName(true);
+                                  try {
+                                    const res = await fetch("/api/ai/generate", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ type: "project_name", prompt: name || "nexus enterprise portal" }),
+                                    });
+                                    if (res.ok) {
+                                      const data = await res.json();
+                                      if (data.result) handleNameChange(data.result);
+                                    }
+                                  } catch (e) {} finally { setAiLoadingName(false); }
+                                }}
+                                disabled={aiLoadingName}
+                                className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[9px] font-extrabold flex items-center gap-1 border border-emerald-200"
+                              >
+                                <Sparkles className={`w-2.5 h-2.5 ${aiLoadingName ? "animate-spin" : ""}`} />
+                                {aiLoadingName ? "Suggesting..." : "✨ AI Name"}
+                              </button>
+                            </div>
                             <input
                               type="text"
                               required
@@ -342,9 +368,33 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
-                            <AlignLeft className="w-3.5 h-3.5" /> Description
-                          </label>
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                              <AlignLeft className="w-3.5 h-3.5" /> Description
+                            </label>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setAiLoadingDesc(true);
+                                try {
+                                  const res = await fetch("/api/ai/generate", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ type: "project_description", prompt: name || description || "enterprise app" }),
+                                  });
+                                  if (res.ok) {
+                                    const data = await res.json();
+                                    if (data.result) setDescription(data.result);
+                                  }
+                                } catch (e) {} finally { setAiLoadingDesc(false); }
+                              }}
+                              disabled={aiLoadingDesc}
+                              className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#006858] text-[9px] font-extrabold flex items-center gap-1 border border-emerald-200"
+                            >
+                              <Sparkles className={`w-2.5 h-2.5 ${aiLoadingDesc ? "animate-spin" : ""}`} />
+                              {aiLoadingDesc ? "Generating..." : "✨ AI Generate Scope"}
+                            </button>
+                          </div>
                           <textarea
                             rows={3}
                             value={description}

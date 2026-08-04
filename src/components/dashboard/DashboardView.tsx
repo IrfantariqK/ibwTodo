@@ -70,18 +70,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, []);
 
   // Determine if logged-in user is a Leader vs Client / Team Member
-  const effectiveType = sessionUser?.type || ctxUserType || "";
-  const effectiveRole = sessionUser?.role || ctxUserRole || "";
+  const effectiveType = (sessionUser?.type || ctxUserType || "").toLowerCase().trim();
+  const effectiveRole = (sessionUser?.role || ctxUserRole || "").toLowerCase().trim();
 
   const isClientOrTeam =
     effectiveType === "client" ||
     effectiveType === "team" ||
-    effectiveRole === "Client" ||
-    effectiveRole === "Team Member" ||
-    effectiveRole.toLowerCase().includes("client") ||
-    effectiveRole.toLowerCase().includes("member");
+    effectiveRole === "client" ||
+    effectiveRole.includes("client") ||
+    effectiveRole.includes("team member");
 
-  const isLeader = !isClientOrTeam;
+  const isLeader =
+    effectiveType === "leader" ||
+    effectiveRole === "leader" ||
+    !isClientOrTeam;
 
   // Fetch real MongoDB Atlas Dashboard metrics
   const fetchDashboard = async () => {
