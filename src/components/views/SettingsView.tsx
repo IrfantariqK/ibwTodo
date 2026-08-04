@@ -5,7 +5,6 @@ import {
   Settings,
   Shield,
   Bell,
-  Key,
   User,
   Save,
   Check,
@@ -74,7 +73,6 @@ export const SettingsView: React.FC = () => {
         setDetectionResult(data);
 
         if (data.detected && data.recommendedModel) {
-          // Default to detected local endpoint and model
           if (data.endpoint) setAiEndpoint(data.endpoint);
           if (data.recommendedModel) setAiModel(data.recommendedModel);
           setAiProvider("local");
@@ -91,27 +89,26 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  // Connect Recommended Local Model
-  const handleApplyRecommendedModel = () => {
-    if (detectionResult?.detected) {
-      if (detectionResult.endpoint) setAiEndpoint(detectionResult.endpoint);
-      if (detectionResult.recommendedModel) setAiModel(detectionResult.recommendedModel);
-      setAiProvider("local");
+  // Connect Selected or Recommended Local Model
+  const handleApplyLocalModel = (modelName: string) => {
+    setAiModel(modelName);
+    setAiProvider("local");
+    const ep = detectionResult?.endpoint || aiEndpoint;
+    if (detectionResult?.endpoint) setAiEndpoint(detectionResult.endpoint);
 
-      const configPayload = {
-        provider: "local",
-        apiKey: aiApiKey,
-        endpoint: detectionResult.endpoint || aiEndpoint,
-        model: detectionResult.recommendedModel || aiModel,
-      };
+    const configPayload = {
+      provider: "local",
+      apiKey: aiApiKey,
+      endpoint: ep,
+      model: modelName,
+    };
 
-      localStorage.setItem("taskconnect_ai_config", JSON.stringify(configPayload));
-      setTestResult({
-        success: true,
-        message: `Successfully connected to local laptop AI model (${detectionResult.recommendedModel})!`,
-        source: detectionResult.provider,
-      });
-    }
+    localStorage.setItem("taskconnect_ai_config", JSON.stringify(configPayload));
+    setTestResult({
+      success: true,
+      message: `Selected and configured local AI model (${modelName})!`,
+      source: detectionResult?.provider || "Local Laptop AI",
+    });
   };
 
   // Test AI Connection
@@ -205,70 +202,7 @@ export const SettingsView: React.FC = () => {
             </span>
           </div>
 
-          {/* Auto-Detect Local AI Laptop Button */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-900 to-[#004d40] text-white space-y-3 shadow-md">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <h4 className="font-black text-sm flex items-center gap-2">
-                  <Laptop className="w-4 h-4 text-emerald-400" />
-                  Auto-Detect Local Laptop AI Models
-                </h4>
-                <p className="text-xs text-emerald-100/80 font-medium">
-                  Automatically scans for Ollama (`http://localhost:11434`), LM Studio (`http://localhost:1234`), or LocalAI.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleDetectLocalAi}
-                disabled={detecting}
-                className="px-4 py-2 rounded-xl bg-white text-[#006858] font-black text-xs hover:bg-emerald-50 transition-all flex items-center gap-2 shrink-0 cursor-pointer shadow-sm disabled:opacity-50"
-              >
-                <Search className={`w-3.5 h-3.5 ${detecting ? "animate-spin" : ""}`} />
-                {detecting ? "Scanning Laptop..." : "🔍 Auto-Detect Local AI"}
-              </button>
-            </div>
-
-            {/* Detection Results Prompt */}
-            {detectionResult && (
-              <div className="pt-2 border-t border-white/10 space-y-2">
-                {detectionResult.detected ? (
-                  <div className="p-3 rounded-xl bg-white/10 border border-white/20 text-xs space-y-2">
-                    <div className="flex items-center gap-2 font-bold text-emerald-300">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>{detectionResult.provider} Detected Active!</span>
-                    </div>
-                    <p className="text-[11px] text-white/90">
-                      Installed Models: <strong className="text-emerald-200">{detectionResult.models?.join(", ")}</strong>
-                    </p>
-                    <p className="text-[11px] text-white/90">
-                      Recommended Model: <strong className="text-emerald-300 font-extrabold">{detectionResult.recommendedModel}</strong>
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={handleApplyRecommendedModel}
-                      className="mt-1 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Connect & Use Recommended Local Model ({detectionResult.recommendedModel})
-                    </button>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-xl bg-black/20 border border-white/10 text-xs space-y-1 text-white/80">
-                    <p className="font-bold text-amber-300 flex items-center gap-1.5">
-                      <AlertCircle className="w-4 h-4" /> No active local AI servers detected running.
-                    </p>
-                    <p className="text-[11px] text-white/70">
-                      To run AI completely offline on your laptop, launch <strong>Ollama</strong> (`ollama run llama3.2`) or <strong>LM Studio</strong>, or enter your API key below.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Provider Selection */}
+          {/* Provider Selection Cards */}
           <div className="space-y-2">
             <label className="text-xs font-extrabold uppercase tracking-wider text-slate-500 block">
               Select AI API Provider
@@ -301,6 +235,94 @@ export const SettingsView: React.FC = () => {
             </div>
           </div>
 
+          {/* Auto-Detect Local AI Laptop Section - SHOWN ONLY WHEN aiProvider === "local" */}
+          {aiProvider === "local" && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-900 to-[#004d40] text-white space-y-3 shadow-md animate-in fade-in slide-in-from-top-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <h4 className="font-black text-sm flex items-center gap-2">
+                    <Laptop className="w-4 h-4 text-emerald-400" />
+                    Auto-Detect Local Laptop AI Models
+                  </h4>
+                  <p className="text-xs text-emerald-100/80 font-medium">
+                    Automatically scans for Ollama (`http://localhost:11434`), LM Studio (`http://localhost:1234`), or LocalAI.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDetectLocalAi}
+                  disabled={detecting}
+                  className="px-4 py-2 rounded-xl bg-white text-[#006858] font-black text-xs hover:bg-emerald-50 transition-all flex items-center gap-2 shrink-0 cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  <Search className={`w-3.5 h-3.5 ${detecting ? "animate-spin" : ""}`} />
+                  {detecting ? "Scanning Laptop..." : "🔍 Auto-Detect Local AI"}
+                </button>
+              </div>
+
+              {/* Detection Results Prompt & Model Select List */}
+              {detectionResult && (
+                <div className="pt-2 border-t border-white/10 space-y-3">
+                  {detectionResult.detected ? (
+                    <div className="p-3.5 rounded-xl bg-white/10 border border-white/20 text-xs space-y-3">
+                      <div className="flex items-center gap-2 font-bold text-emerald-300">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>{detectionResult.provider} Active & Detected!</span>
+                      </div>
+
+                      {/* Interactive Model Selection Buttons / Badges */}
+                      {detectionResult.models && detectionResult.models.length > 0 && (
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-extrabold text-emerald-200 block">
+                            Click Any Installed Model Below to Use ({detectionResult.models.length} Found):
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {detectionResult.models.map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => handleApplyLocalModel(m)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                  aiModel === m
+                                    ? "bg-white text-[#006858] border-white shadow-md font-black scale-105"
+                                    : "bg-white/10 text-white hover:bg-white/25 border-white/20"
+                                }`}
+                              >
+                                {m === detectionResult.recommendedModel ? `⭐ ${m} (Recommended)` : m}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-1">
+                        <p className="text-[11px] text-white/80">
+                          Active Selection: <strong className="text-emerald-300 font-extrabold">{aiModel}</strong>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyLocalModel(detectionResult.recommendedModel || aiModel)}
+                          className="px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-black text-[11px] transition-colors cursor-pointer shadow-sm"
+                        >
+                          Use Recommended ({detectionResult.recommendedModel})
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-xl bg-black/20 border border-white/10 text-xs space-y-1 text-white/80">
+                      <p className="font-bold text-amber-300 flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4" /> No active local AI servers detected running on localhost.
+                      </p>
+                      <p className="text-[11px] text-white/70">
+                        To run AI offline on your laptop, launch <strong>Ollama</strong> (`ollama run llama3.2`) or <strong>LM Studio</strong>, or switch provider above to Google Gemini or OpenAI.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Dynamic Configuration Inputs */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             {/* Localhost / Custom Endpoint */}
@@ -319,25 +341,39 @@ export const SettingsView: React.FC = () => {
               </div>
             )}
 
-            {/* Model Name */}
+            {/* Model Name Select & Input */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 block">
                 Model Name
               </label>
-              <input
-                type="text"
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                placeholder="e.g. llama3.2, mistral, gpt-4o-mini, gemini-1.5-flash"
-                className="w-full bg-slate-50 text-slate-900 font-bold p-3 rounded-2xl border border-slate-200 focus:border-[#006858] text-xs"
-              />
+              {detectionResult?.models && detectionResult.models.length > 0 && aiProvider === "local" ? (
+                <select
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value)}
+                  className="w-full bg-slate-50 text-slate-900 font-bold p-3 rounded-2xl border border-slate-200 focus:border-[#006858] text-xs cursor-pointer"
+                >
+                  {detectionResult.models.map((m) => (
+                    <option key={m} value={m}>
+                      {m} {m === detectionResult.recommendedModel ? "(Recommended)" : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value)}
+                  placeholder="e.g. llama3.2, mistral, gpt-4o-mini, gemini-1.5-flash"
+                  className="w-full bg-slate-50 text-slate-900 font-bold p-3 rounded-2xl border border-slate-200 focus:border-[#006858] text-xs"
+                />
+              )}
             </div>
 
             {/* API Key Input for Paid / Cloud Providers */}
             {(aiProvider === "gemini" || aiProvider === "openai" || aiProvider === "custom") && (
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-xs font-bold text-slate-700 block flex items-center justify-between">
-                  <span>API Key</span>
+                  <span>API Key ({aiProvider === "gemini" ? "Google Gemini" : aiProvider === "openai" ? "OpenAI" : "Custom API"})</span>
                   <span className="text-[10px] text-slate-400 font-medium">Stored encrypted in session</span>
                 </label>
                 <input
