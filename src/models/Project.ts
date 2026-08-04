@@ -9,6 +9,15 @@ export interface IProjectMember {
   type: "team" | "client";
 }
 
+export interface IProjectFile {
+  id: string;
+  name: string;
+  size: string;
+  type: string;
+  url: string;
+  uploadedAt: string;
+}
+
 export interface IProject extends Document {
   name: string;
   description: string;
@@ -17,6 +26,7 @@ export interface IProject extends Document {
   tags: string[];
   clients: IProjectMember[];
   teamMembers: IProjectMember[];
+  files: IProjectFile[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,6 +43,18 @@ const MemberSchema = new Schema(
   { _id: false }
 );
 
+const FileSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    size: { type: String, default: "0 KB" },
+    type: { type: String, default: "Document" },
+    url: { type: String, default: "" },
+    uploadedAt: { type: String, default: () => new Date().toISOString() },
+  },
+  { _id: false }
+);
+
 const ProjectSchema: Schema = new Schema(
   {
     name: { type: String, required: true },
@@ -42,6 +64,7 @@ const ProjectSchema: Schema = new Schema(
     tags: [{ type: String }],
     clients: { type: [MemberSchema], default: [] },
     teamMembers: { type: [MemberSchema], default: [] },
+    files: { type: [FileSchema], default: [] },
   },
   { timestamps: true }
 );

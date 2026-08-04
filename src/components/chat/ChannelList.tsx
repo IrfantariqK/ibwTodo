@@ -33,7 +33,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   activeChannel,
   onSelectChannel,
 }) => {
-  const { activeProject } = useProject();
+  const { projects, activeProject } = useProject();
   const [channels, setChannels] = useState<ChannelItem[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
@@ -91,9 +91,22 @@ export const ChannelList: React.FC<ChannelListProps> = ({
 
   const publicChannels = channels.filter((c) => !c.isDirectMessage);
 
-  // Active project clients and team members
-  const projectClients = activeProject?.clients || [];
-  const projectTeam = activeProject?.teamMembers || [];
+  // Active project clients and team members OR all workspace contacts if "All Projects" is selected
+  const displayClients: ProjectMember[] = activeProject
+    ? (activeProject.clients || [])
+    : Array.from(
+        new Map(
+          projects.flatMap((p) => p.clients || []).map((c) => [c.email?.toLowerCase(), c])
+        ).values()
+      );
+
+  const displayTeam: ProjectMember[] = activeProject
+    ? (activeProject.teamMembers || [])
+    : Array.from(
+        new Map(
+          projects.flatMap((p) => p.teamMembers || []).map((m) => [m.email?.toLowerCase(), m])
+        ).values()
+      );
 
   return (
     <div className="w-64 bg-[#F8FAFC] border-r border-slate-200/90 flex flex-col justify-between h-full p-4 font-sans shrink-0">
@@ -114,12 +127,10 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         </div>
 
         {/* Selected Project Indicator Banner */}
-        {activeProject && (
-          <div className="px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-200/80 text-[11px] font-bold text-[#006858]">
-            <p className="uppercase tracking-wider text-[9px] text-[#006858]/70">Project Filtered</p>
-            <p className="truncate font-black">{activeProject.name}</p>
-          </div>
-        )}
+        <div className="px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-200/80 text-[11px] font-bold text-[#006858]">
+          <p className="uppercase tracking-wider text-[9px] text-[#006858]/70">Project Context</p>
+          <p className="truncate font-black">{activeProject ? activeProject.name : "All Projects Scope"}</p>
+        </div>
 
         {/* Public Channels Section */}
         <div className="space-y-1">
@@ -162,24 +173,24 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         </div>
 
         {/* CLIENTS DIRECT MESSAGES SECTION */}
-        {projectClients.length > 0 && (
+        {displayClients.length > 0 && (
           <div className="space-y-1 pt-2 border-t border-slate-200/60">
             <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2.5 mb-1 flex items-center justify-between">
               <span className="flex items-center gap-1">
                 <Building className="w-3 h-3 text-[#006858]" /> CLIENTS
               </span>
               <span className="bg-emerald-100 text-[#006858] px-1.5 py-0.5 rounded-full text-[9px] font-bold">
-                {projectClients.length}
+                {displayClients.length}
               </span>
             </div>
 
             <div className="space-y-1">
-              {projectClients.map((client) => {
+              {displayClients.map((client) => {
                 const isActive = activeChannel === client.email;
 
                 return (
                   <button
-                    key={client.id}
+                    key={client.id || client.email}
                     onClick={() => onSelectChannel(client.email, client)}
                     className={cn(
                       "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-left",
@@ -216,18 +227,18 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               <Users className="w-3 h-3 text-[#006858]" /> DIRECT MESSAGES
             </span>
             <span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full text-[9px]">
-              {projectTeam.length > 0 ? projectTeam.length : "Team"}
+              {displayTeam.length}
             </span>
           </div>
 
           <div className="space-y-1">
-            {projectTeam.length > 0 ? (
-              projectTeam.map((mem) => {
+            {displayTeam.length > 0 ? (
+              displayTeam.map((mem) => {
                 const isActive = activeChannel === mem.email;
 
                 return (
                   <button
-                    key={mem.id}
+                    key={mem.id || mem.email}
                     onClick={() => onSelectChannel(mem.email, mem)}
                     className={cn(
                       "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-left",
@@ -255,7 +266,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               })
             ) : (
               <div className="px-3 py-2 text-[11px] text-slate-400 font-medium italic">
-                Select a project or create one with team members.
+                No direct message contacts found.
               </div>
             )}
           </div>

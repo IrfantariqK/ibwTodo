@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { connectToDatabase } from "@/lib/mongodb";
 import User from "@/models/User";
-
-const JWT_SECRET = process.env.JWT_SECRET || "ibwtech_taskconnect_secret";
+import { sendVerificationOtpEmail } from "@/lib/nodemailer";
 
 export async function POST(req: Request) {
   try {
@@ -53,54 +51,60 @@ export async function POST(req: Request) {
     // Check if user already exists
     const existing = await User.findOne({ email: cleanEmail });
     if (existing) {
-      return NextResponse.json(
-        { error: "An account with this email already exists. Please sign in." },
-        { status: 409 }
-      );
+      if (existing.isVerified) {
+        return NextResponse.json(
+          { error: "An account with this email already exists and is verified. Please sign in." },
+          { status: 409 }
+        );
+      } else {
+        // Generate new 6-digit OTP for unverified existing user
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const hashedPassword = await bcrypt.hash(password, 12);
+        
+        existing.name = name.trim();
+        existing.password = hashedPassword;
+        existing.verificationOtp = otpCode;
+        existing.otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        existing.status = "Pending Verification";
+        await existing.save();
+
+        await sendVerificationOtpEmail({ email: cleanEmail, name: name.trim(), otp: otpCode });
+
+        return NextResponse.json({
+          success: true,
+          requireOtp: true,
+          email: cleanEmail,
+          message: "A 6-digit verification code has been sent to your email.",
+        });
+      }
     }
 
-    // Hash the password with bcrypt
+    // Generate random 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Save new user to MongoDB Atlas as Leader
-    const newUser = await User.create({
+    // Save new user to MongoDB Atlas as Leader with Pending Verification status
+    await User.create({
       name: name.trim(),
       email: cleanEmail,
       password: hashedPassword,
       role: "Leader",
       type: "leader",
-      status: "Active",
+      status: "Pending Verification",
+      isVerified: false,
+      verificationOtp: otpCode,
+      otpExpiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min expiry
     });
 
-    // Sign a JWT token
-    const token = jwt.sign(
-      { userId: newUser._id.toString(), email: newUser.email, name: newUser.name, role: "Leader", type: "leader" },
-      JWT_SECRET,
-      { expiresIn: "30d" }
-    );
+    // Send email with 6-digit OTP
+    await sendVerificationOtpEmail({ email: cleanEmail, name: name.trim(), otp: otpCode });
 
-    const userData = {
-      id: newUser._id.toString(),
-      name: newUser.name,
-      email: newUser.email,
-      role: "Leader",
-      type: "leader",
-    };
-
-    const response = NextResponse.json({ success: true, user: userData });
-
-    // Set JWT in HTTP-only cookie (secure, no JS access)
-    response.cookies.set({
-      name: "auth_token",
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+    return NextResponse.json({
+      success: true,
+      requireOtp: true,
+      email: cleanEmail,
+      message: "Registration successful! A 6-digit verification code has been sent to your email.",
     });
-
-    return response;
   } catch (error: any) {
     console.error("Signup error:", error?.message || error);
     return NextResponse.json(

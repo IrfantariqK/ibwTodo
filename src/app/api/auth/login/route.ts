@@ -38,6 +38,18 @@ export async function POST(req: Request) {
       );
     }
 
+    // Check if account email is verified
+    if (userDoc.status === "Pending Verification" || userDoc.isVerified === false) {
+      return NextResponse.json(
+        {
+          error: "Your email is not verified yet. Please enter the 6-digit verification code sent to your email.",
+          requireOtp: true,
+          email: cleanEmail,
+        },
+        { status: 403 }
+      );
+    }
+
     // Check account status if set
     if (userDoc.status === "Pending Acceptance") {
       return NextResponse.json(
@@ -63,12 +75,16 @@ export async function POST(req: Request) {
       { expiresIn: "30d" }
     );
 
+    const isClient = userDoc.type === "client" || userDoc.role?.toLowerCase().includes("client");
+    const userRole = isClient ? (userDoc.role || "Client") : "Leader";
+    const userType = isClient ? "client" : "leader";
+
     const userData = {
       id: userDoc._id.toString(),
       name: userDoc.name,
       email: userDoc.email,
-      role: userDoc.role,
-      type: userDoc.type || "team",
+      role: userRole,
+      type: userType,
       avatar: userDoc.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(userDoc.email)}`,
     };
 

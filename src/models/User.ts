@@ -6,7 +6,10 @@ export interface IUser extends Document {
   password: string;
   role: string;
   type: "leader" | "client" | "team";
-  status: "Pending Acceptance" | "Active";
+  status: "Pending Verification" | "Pending Acceptance" | "Active";
+  isVerified: boolean;
+  verificationOtp?: string;
+  otpExpiresAt?: Date;
   avatar: string;
   createdAt: Date;
   updatedAt: Date;
@@ -19,7 +22,10 @@ const UserSchema: Schema = new Schema(
     password: { type: String, required: true },
     role: { type: String, default: "Leader" },
     type: { type: String, enum: ["leader", "client", "team"], default: "leader" },
-    status: { type: String, enum: ["Pending Acceptance", "Active"], default: "Active" },
+    status: { type: String, enum: ["Pending Verification", "Pending Acceptance", "Active"], default: "Pending Verification" },
+    isVerified: { type: Boolean, default: false },
+    verificationOtp: { type: String, default: "" },
+    otpExpiresAt: { type: Date },
     avatar: { type: String, default: "" },
   },
   { timestamps: true }

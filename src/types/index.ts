@@ -7,6 +7,16 @@ export interface ProjectMember {
   type: "team" | "client";
 }
 
+export interface ProjectFile {
+  id: string;
+  name: string;
+  size: string;
+  type: string;
+  url: string;
+  data?: string;
+  uploadedAt: string;
+}
+
 export interface ProjectItem {
   id: string;
   _id?: string;
@@ -17,6 +27,7 @@ export interface ProjectItem {
   tags?: string[];
   clients?: ProjectMember[];
   teamMembers?: ProjectMember[];
+  files?: ProjectFile[];
   createdAt?: string;
   updatedAt?: string;
 }

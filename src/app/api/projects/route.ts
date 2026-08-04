@@ -3,37 +3,41 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Project from "@/models/Project";
 import Channel from "@/models/Channel";
 import Activity from "@/models/Activity";
+import User from "@/models/User";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const email = searchParams.get("email")?.toLowerCase().trim();
-    const role = searchParams.get("role");
-    const userType = searchParams.get("type");
 
     const db = await connectToDatabase();
     if (db) {
-      // LEADER: Can view ALL projects across workspace
-      const isLeader =
-        role === "Leader" ||
-        userType === "leader" ||
-        !email ||
-        email === "admin@ibwtech.com" ||
-        email === "user@ibwtech.com";
-
       const query: any = {};
-      if (!isLeader && email) {
-        // CLIENT: Can view ONLY projects where assigned as client
-        // TEAM MEMBER: Can view ONLY projects where assigned as team member
-        if (userType === "client") {
-          query["clients.email"] = email;
-        } else if (userType === "team") {
-          query["teamMembers.email"] = email;
-        } else {
-          query.$or = [
-            { "clients.email": email },
-            { "teamMembers.email": email },
-          ];
+
+      if (email) {
+        // Query User directly from MongoDB Atlas User collection to verify role
+        const userInDb = await User.findOne({ email });
+
+        // A user is a Client or Team Member ONLY if explicitly saved as type client/team in MongoDB and NOT a Leader
+        const isRestrictedUser =
+          userInDb &&
+          (userInDb.type === "client" || userInDb.type === "team") &&
+          userInDb.role !== "Leader" &&
+          userInDb.type !== "leader";
+
+        const isLeader = !isRestrictedUser;
+
+        if (!isLeader && userInDb) {
+          if (userInDb.type === "client") {
+            query["clients.email"] = email;
+          } else if (userInDb.type === "team") {
+            query["teamMembers.email"] = email;
+          } else {
+            query.$or = [
+              { "clients.email": email },
+              { "teamMembers.email": email },
+            ];
+          }
         }
       }
 
@@ -79,6 +83,7 @@ export async function POST(req: Request) {
       tags: Array.isArray(body.tags) ? body.tags : ["Engineering"],
       clients: Array.isArray(body.clients) ? body.clients : [],
       teamMembers: Array.isArray(body.teamMembers) ? body.teamMembers : [],
+      files: Array.isArray(body.files) ? body.files : [],
     });
 
     const projectIdStr = doc._id.toString();

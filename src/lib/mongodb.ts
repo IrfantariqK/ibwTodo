@@ -8,10 +8,7 @@ try {
   console.warn("DNS server setup warning:", dnsErr);
 }
 
-const PRIMARY_URI = process.env.MONGODB_URI || "";
-
-// Direct seedlist fallback connection string if mongodb+srv TXT lookup fails on local ISP
-const FALLBACK_URI = "mongodb://irfan992990_db_user:gXMSHWBlBYZdajQB@cluster0-shard-00-00.wow0lt3.mongodb.net:27017,cluster0-shard-00-01.wow0lt3.mongodb.net:27017,cluster0-shard-00-02.wow0lt3.mongodb.net:27017/taskconnect?ssl=true&replicaSet=atlas-wow0lt3-shard-0&authSource=admin&retryWrites=true&w=majority";
+const MONGODB_URI = process.env.MONGODB_URI || "";
 
 interface MongooseCache {
   conn: typeof mongoose | null;
@@ -30,32 +27,27 @@ if (!global.mongooseCache) {
 }
 
 export async function connectToDatabase() {
-  if (!PRIMARY_URI) {
+  if (!MONGODB_URI) {
+    console.error("MONGODB_URI is not defined in environment variables.");
     return null;
   }
 
-  if (cached.conn) {
+  if (cached.conn && mongoose.connection.readyState === 1) {
     return cached.conn;
   }
 
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
     };
 
-    cached.promise = mongoose
-      .connect(PRIMARY_URI, opts)
-      .catch(async (primaryErr) => {
-        console.warn("Primary mongodb+srv lookup failed, attempting direct shard seedlist connection...", primaryErr?.message || primaryErr);
-        return mongoose.connect(FALLBACK_URI, opts);
-      })
-      .then((m) => m);
+    cached.promise = mongoose.connect(MONGODB_URI, opts);
   }
 
   try {
     cached.conn = await cached.promise;
-    console.log("✅ Successfully connected to MongoDB Atlas database");
+    console.log("✅ Connected exclusively to MongoDB Atlas:", MONGODB_URI.split("@")[1]);
   } catch (e) {
     cached.promise = null;
     console.error("MongoDB Atlas connection error:", e);

@@ -14,8 +14,11 @@ import {
   CheckCircle2,
   Tag,
   Briefcase,
+  Paperclip,
+  Upload,
+  FileText,
 } from "lucide-react";
-import { ProjectMember } from "@/types";
+import { ProjectMember, ProjectFile } from "@/types";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -28,7 +31,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   onClose,
   onProjectCreated,
 }) => {
-  const [activeTab, setActiveTab] = useState<"info" | "clients" | "team">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "clients" | "team" | "files">("info");
   const [name, setName] = useState("");
   const [channelName, setChannelName] = useState("");
   const [description, setDescription] = useState("");
@@ -53,6 +56,9 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const [memberEmail, setMemberEmail] = useState("");
   const [memberRole, setMemberRole] = useState("Full-Stack Dev");
 
+  // Project Files inputs
+  const [files, setFiles] = useState<ProjectFile[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -65,10 +71,41 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       setTags("Web, Design, API");
       setClients([]);
       setTeamMembers([]);
+      setFiles([]);
       setError("");
       setActiveTab("info");
     }
   }, [isOpen]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFiles = e.target.files;
+    if (!uploadedFiles || uploadedFiles.length === 0) return;
+
+    Array.from(uploadedFiles).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Data = event.target?.result as string;
+        const newFile: ProjectFile = {
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          name: file.name,
+          size: formatBytes(file.size),
+          type: file.type || "Document",
+          url: base64Data,
+          data: base64Data,
+          uploadedAt: new Date().toISOString(),
+        };
+        setFiles((prev) => [...prev, newFile]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  function formatBytes(bytes: number) {
+    if (!bytes) return "0 B";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   const handleAddClient = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +168,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
           tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
           clients,
           teamMembers,
+          files,
         }),
       });
 
@@ -175,6 +213,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
     { id: "info", label: "Project Info", icon: <Briefcase className="w-3.5 h-3.5" /> },
     { id: "clients", label: "Clients", icon: <Building className="w-3.5 h-3.5" />, count: clients.length },
     { id: "team", label: "Team Members", icon: <Users className="w-3.5 h-3.5" />, count: teamMembers.length },
+    { id: "files", label: "Project Files", icon: <Paperclip className="w-3.5 h-3.5" />, count: files.length },
   ];
 
   return (
@@ -213,11 +252,12 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                     <div>
                       <h2 className="text-base font-black text-white">Create New Project</h2>
                       <p className="text-[11px] text-white/60 font-medium">
-                        Add project details, assign clients & team members to MongoDB
+                        Add project details, files, clients & team members to MongoDB
                       </p>
                     </div>
                   </div>
                   <button
+                    type="button"
                     onClick={onClose}
                     className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all border border-white/10 text-white"
                   >
@@ -226,13 +266,13 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 </div>
 
                 {/* Tabs Switcher */}
-                <div className="flex gap-1 mt-4 bg-black/20 rounded-2xl p-1">
+                <div className="flex gap-1 mt-4 bg-black/20 rounded-2xl p-1 overflow-x-auto">
                   {tabs.map((tab) => (
                     <button
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveTab(tab.id as any)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                         activeTab === tab.id
                           ? "bg-white text-[#006858] shadow-sm"
                           : "text-white/70 hover:text-white"
@@ -536,6 +576,84 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => setTeamMembers(teamMembers.filter((mem) => mem.id !== m.id))}
+                                  className="w-7 h-7 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("files")}
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-50 text-[#006858] font-bold text-xs border border-emerald-200 hover:bg-emerald-100 transition-all"
+                        >
+                          Next: Add Project Files →
+                        </button>
+                      </motion.div>
+                    )}
+
+                    {/* TAB 4: PROJECT FILES */}
+                    {activeTab === "files" && (
+                      <motion.div
+                        key="files"
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 10 }}
+                        className="p-6 space-y-5"
+                      >
+                        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 text-center space-y-3">
+                          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-[#006858] flex items-center justify-center mx-auto shadow-inner">
+                            <Upload className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-extrabold text-[#0F172A]">Attach Project Info Files & Specifications</h4>
+                            <p className="text-xs text-slate-500 font-medium mt-1">
+                              Upload specs, wireframes, project briefs or PDFs to store in MongoDB Atlas
+                            </p>
+                          </div>
+
+                          <label className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#006858] hover:bg-[#005245] text-white font-extrabold text-xs shadow-md transition-all cursor-pointer">
+                            <Paperclip className="w-4 h-4" />
+                            Browse & Select Files
+                            <input
+                              type="file"
+                              multiple
+                              onChange={handleFileUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+
+                        {/* Files list */}
+                        <div className="space-y-2">
+                          <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                            {files.length} File{files.length !== 1 ? "s" : ""} Attached
+                          </p>
+                          {files.length === 0 ? (
+                            <div className="p-4 rounded-2xl border border-dashed border-slate-200 text-center text-xs text-slate-400 font-medium">
+                              No project files attached yet.
+                            </div>
+                          ) : (
+                            files.map((f) => (
+                              <div
+                                key={f.id}
+                                className="flex items-center justify-between p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs text-xs"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[#006858]">
+                                    <FileText className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-slate-800">{f.name}</p>
+                                    <p className="text-[10px] text-slate-400">{f.size} · {f.type}</p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setFiles(files.filter((fl) => fl.id !== f.id))}
                                   className="w-7 h-7 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />

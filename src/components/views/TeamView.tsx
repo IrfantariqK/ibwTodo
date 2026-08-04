@@ -4,12 +4,26 @@ import React from "react";
 import { Users, Mail, UserPlus, Building, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useProject } from "@/context/ProjectContext";
+import { ProjectMember } from "@/types";
 
 export const TeamView: React.FC = () => {
-  const { activeProject } = useProject();
+  const { projects, activeProject } = useProject();
 
-  const clients = activeProject?.clients || [];
-  const teamMembers = activeProject?.teamMembers || [];
+  const clients: ProjectMember[] = activeProject
+    ? (activeProject.clients || [])
+    : Array.from(
+        new Map(
+          projects.flatMap((p) => p.clients || []).map((c) => [c.email?.toLowerCase(), c])
+        ).values()
+      );
+
+  const teamMembers: ProjectMember[] = activeProject
+    ? (activeProject.teamMembers || [])
+    : Array.from(
+        new Map(
+          projects.flatMap((p) => p.teamMembers || []).map((m) => [m.email?.toLowerCase(), m])
+        ).values()
+      );
 
   // Combine clients & team members for display
   const allMembers = [
@@ -23,7 +37,7 @@ export const TeamView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold text-[#006858] uppercase tracking-wider">
-              {activeProject ? `Project: ${activeProject.name}` : "All Organization Directory"}
+              {activeProject ? `Project: ${activeProject.name}` : "All Workspace Organization Directory"}
             </span>
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight flex items-center gap-2">
@@ -43,7 +57,7 @@ export const TeamView: React.FC = () => {
           </div>
           <h4 className="font-extrabold text-slate-800 text-sm">No Members or Clients Assigned</h4>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Select or create a project with team members and clients to view their roles and contact info here.
+            Create or select a project with team members and clients to view their roles and contact info here.
           </p>
         </div>
       ) : (

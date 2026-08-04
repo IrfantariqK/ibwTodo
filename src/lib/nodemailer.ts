@@ -125,3 +125,96 @@ export async function sendInvitationEmail(options: SendInviteOptions): Promise<b
     return false;
   }
 }
+
+interface SendOtpOptions {
+  email: string;
+  name: string;
+  otp: string;
+}
+
+export async function sendVerificationOtpEmail(options: SendOtpOptions): Promise<boolean> {
+  const { email, name, otp } = options;
+
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const port = parseInt(process.env.SMTP_PORT || "587");
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || `"TaskConnect Security" <noreply@taskconnect.io>`;
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding: 0; }
+          .container { max-width: 520px; margin: 30px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+          .header { background: linear-gradient(135deg, #004d40 0%, #00897b 100%); padding: 32px 24px; text-align: center; color: #ffffff; }
+          .header h1 { margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; }
+          .header p { margin: 6px 0 0 0; font-size: 13px; opacity: 0.85; }
+          .body-content { padding: 32px 28px; text-align: center; }
+          .otp-box { background-color: #e6f4f1; border: 2px dashed #006858; border-radius: 16px; padding: 20px; margin: 24px 0; display: inline-block; width: 80%; }
+          .otp-code { font-size: 36px; font-weight: 900; font-family: monospace; letter-spacing: 10px; color: #006858; margin: 0; }
+          .footer { background-color: #f8fafc; padding: 20px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>TaskConnect Account Verification</h1>
+            <p>6-Digit Email Verification Code</p>
+          </div>
+          <div class="body-content">
+            <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 800; color: #0f172a;">Verify Your Account</h2>
+            <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px 0;">
+              Hello <strong>${name}</strong>,<br>
+              Thank you for signing up for TaskConnect! Please use the 6-digit verification code below to verify your email address and activate your workspace.
+            </p>
+
+            <div class="otp-box">
+              <p class="otp-code">${otp}</p>
+            </div>
+
+            <p style="font-size: 12px; color: #64748b; margin-top: 16px;">
+              This code will expire in 15 minutes. If you did not create a TaskConnect account, please ignore this email.
+            </p>
+          </div>
+          <div class="footer">
+            Powered by IBWTECH • TaskConnect Security Center
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  if (!user || !pass) {
+    console.log(`\n======================================================`);
+    console.log(`📧 [OTP VERIFICATION MAIL GENERATED - NO SMTP USER CONFIGURED]`);
+    console.log(`To: ${email} (${name})`);
+    console.log(`6-Digit OTP: ${otp}`);
+    console.log(`======================================================\n`);
+    return true;
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+
+    await transporter.sendMail({
+      from,
+      to: email,
+      subject: `🔐 ${otp} is your TaskConnect email verification code`,
+      html: htmlContent,
+    });
+
+    console.log(`✅ [OTP EMAIL SENT SUCCESSFULLY] To: ${email}`);
+    return true;
+  } catch (error) {
+    console.error("❌ Error sending OTP email via Nodemailer:", error);
+    return false;
+  }
+}

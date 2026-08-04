@@ -21,30 +21,41 @@ const ProjectContext = createContext<ProjectContextType>({
   setActiveProjectId: () => {},
   refreshProjects: async () => {},
   loading: true,
-  userRole: "Leader",
-  userType: "leader",
+  userRole: "",
+  userType: "",
 });
 
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [activeProjectId, setActiveProjectIdState] = useState<string>("all");
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState("Leader");
-  const [userType, setUserType] = useState("leader");
+  const [userRole, setUserRole] = useState("");
+  const [userType, setUserType] = useState("");
 
   const fetchProjects = async () => {
     try {
       let userEmail = "";
-      let roleVal = "Leader";
-      let typeVal = "leader";
+      let roleVal = "";
+      let typeVal = "";
 
       const savedUser = localStorage.getItem("taskconnect_user");
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser);
-          userEmail = parsed.email || "";
-          roleVal = parsed.role || "Leader";
-          typeVal = parsed.type || (roleVal === "Leader" ? "leader" : "team");
+          userEmail = (parsed.email || "").toLowerCase().trim();
+          roleVal = parsed.role || "";
+          typeVal = parsed.type || "";
+
+          // Determine typeVal from role if missing
+          if (!typeVal) {
+            if (roleVal === "Leader" || roleVal === "leader") {
+              typeVal = "leader";
+            } else if (roleVal.toLowerCase().includes("client")) {
+              typeVal = "client";
+            } else {
+              typeVal = "team";
+            }
+          }
         } catch (e) {
           console.warn("Error parsing user session in ProjectContext:", e);
         }
@@ -55,44 +66,50 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const queryParams = new URLSearchParams();
       if (userEmail) queryParams.set("email", userEmail);
-      if (roleVal) queryParams.set("role", roleVal);
-      if (typeVal) queryParams.set("type", typeVal);
 
       const res = await fetch(`/api/projects?${queryParams.toString()}`);
       if (res.ok) {
-        let data: ProjectItem[] = await res.json();
+        let allProjects: ProjectItem[] = await res.json();
+        let filteredProjects: ProjectItem[] = allProjects;
 
-        const cleanEmail = userEmail.toLowerCase().trim();
-        const isLeader = roleVal === "Leader" || typeVal === "leader" || !cleanEmail || cleanEmail === "admin@ibwtech.com" || cleanEmail === "user@ibwtech.com";
+        if (userEmail) {
+          // Check if user is a Client or Team Member in fetched projects
+          const isAssignedAsClient = allProjects.some((p) =>
+            p.clients?.some((c) => c.email?.toLowerCase().trim() === userEmail)
+          );
+          const isAssignedAsTeam = allProjects.some((p) =>
+            p.teamMembers?.some((m) => m.email?.toLowerCase().trim() === userEmail)
+          );
 
-        if (!isLeader && cleanEmail) {
-          if (typeVal === "client") {
-            // CLIENT: Can view ONLY projects where assigned as client
-            data = data.filter((p) =>
-              p.clients?.some((c) => c.email?.toLowerCase().trim() === cleanEmail)
+          const isLeader = typeVal === "leader" || roleVal === "Leader";
+
+          if (typeVal === "client" || (isAssignedAsClient && !isLeader)) {
+            // CLIENT: View ONLY projects where assigned as client
+            filteredProjects = allProjects.filter((p) =>
+              p.clients?.some((c) => c.email?.toLowerCase().trim() === userEmail)
             );
-          } else if (typeVal === "team") {
-            // TEAM MEMBER: Can view ONLY projects where assigned as team member
-            data = data.filter((p) =>
-              p.teamMembers?.some((m) => m.email?.toLowerCase().trim() === cleanEmail)
+          } else if (typeVal === "team" || (isAssignedAsTeam && !isLeader)) {
+            // TEAM MEMBER: View ONLY projects where assigned as team member
+            filteredProjects = allProjects.filter((p) =>
+              p.teamMembers?.some((m) => m.email?.toLowerCase().trim() === userEmail)
             );
-          } else {
-            data = data.filter((p) => {
-              const hasClient = p.clients?.some((c) => c.email?.toLowerCase().trim() === cleanEmail);
-              const hasTeam = p.teamMembers?.some((m) => m.email?.toLowerCase().trim() === cleanEmail);
-              return hasClient || hasTeam;
+          } else if (!isLeader) {
+            filteredProjects = allProjects.filter((p) => {
+              const inClient = p.clients?.some((c) => c.email?.toLowerCase().trim() === userEmail);
+              const inTeam = p.teamMembers?.some((m) => m.email?.toLowerCase().trim() === userEmail);
+              return inClient || inTeam;
             });
           }
         }
 
-        setProjects(data);
+        setProjects(filteredProjects);
 
-        // Auto-select first permitted project if activeProjectId is invalid or restricted
-        if (data.length > 0) {
+        // Auto-select active project
+        if (filteredProjects.length > 0) {
           const savedActive = localStorage.getItem("taskconnect_active_project");
-          const isValidActive = savedActive && data.some((p) => (p.id === savedActive || p._id === savedActive));
-          if (!isValidActive && savedActive !== "all") {
-            const firstId = data[0].id || data[0]._id || "all";
+          const isValidActive = savedActive && filteredProjects.some((p) => (p.id === savedActive || p._id === savedActive));
+          if (!isValidActive) {
+            const firstId = filteredProjects[0].id || filteredProjects[0]._id || "all";
             setActiveProjectIdState(firstId);
             localStorage.setItem("taskconnect_active_project", firstId);
           }
