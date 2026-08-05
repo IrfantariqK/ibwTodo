@@ -55,7 +55,7 @@ export default function LoginRoutePage() {
       } else if (data.user.type === "team" || (data.user.role || "").toLowerCase().includes("team")) {
         router.push("/member/dashboard");
       } else {
-        router.push("/dashboard");
+        router.push("/leader/dashboard");
       }
       router.refresh();
     } catch (err: any) {

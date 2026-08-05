@@ -9,6 +9,9 @@ export function proxy(request: NextRequest) {
     pathname === "/login" ||
     pathname === "/signup" ||
     pathname === "/accept-invite" ||
+    pathname.startsWith("/leader/login") ||
+    pathname.startsWith("/client/login") ||
+    pathname.startsWith("/member/login") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.includes("favicon.ico");
@@ -16,8 +19,15 @@ export function proxy(request: NextRequest) {
   const authToken = request.cookies.get("auth_token")?.value;
   const isLogoutRequested = searchParams.get("logout") === "true";
 
-  // If user requests logout or visits /login explicitly, allow them to view login form
-  if ((pathname === "/login" || pathname === "/signup") && isLogoutRequested) {
+  const isLoginPath =
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname.startsWith("/leader/login") ||
+    pathname.startsWith("/client/login") ||
+    pathname.startsWith("/member/login");
+
+  // If user requests logout or visits login explicitly with logout flag, clear cookie
+  if (isLoginPath && isLogoutRequested) {
     const response = NextResponse.next();
     response.cookies.set({
       name: "auth_token",
@@ -29,15 +39,27 @@ export function proxy(request: NextRequest) {
     return response;
   }
 
-  // Redirect unauthenticated user to /login
+  // Redirect unauthenticated user to their respective login portal
   if (!isPublicPath && !authToken) {
-    const loginUrl = new URL("/login", request.url);
+    let targetLogin = "/leader/login";
+    if (pathname.startsWith("/client")) {
+      targetLogin = "/client/login";
+    } else if (pathname.startsWith("/member")) {
+      targetLogin = "/member/login";
+    }
+    const loginUrl = new URL(targetLogin, request.url);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect authenticated user away from /login or /signup to /dashboard (unless logout is requested)
-  if ((pathname === "/login" || pathname === "/signup") && authToken && !isLogoutRequested) {
-    const dashboardUrl = new URL("/dashboard", request.url);
+  // Redirect authenticated user away from login pages to leader dashboard by default
+  if (isLoginPath && authToken && !isLogoutRequested) {
+    let targetDashboard = "/leader/dashboard";
+    if (pathname.startsWith("/client")) {
+      targetDashboard = "/client/dashboard";
+    } else if (pathname.startsWith("/member")) {
+      targetDashboard = "/member/dashboard";
+    }
+    const dashboardUrl = new URL(targetDashboard, request.url);
     return NextResponse.redirect(dashboardUrl);
   }
 
