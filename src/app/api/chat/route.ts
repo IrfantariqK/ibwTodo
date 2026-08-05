@@ -16,23 +16,44 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const channelId = searchParams.get("channelId");
-    const recipientId = searchParams.get("recipientId");
+    const recipientId = (searchParams.get("recipientId") || "").toLowerCase().trim();
+    const senderEmail = (searchParams.get("senderEmail") || searchParams.get("email") || "").toLowerCase().trim();
     const projectId = searchParams.get("projectId");
 
     const db = await connectToDatabase();
     if (!db) return NextResponse.json([], { headers: NO_CACHE_HEADERS });
 
     const query: any = {};
-    if (projectId && projectId !== "all") {
-      query.projectId = projectId;
-    }
+
     if (recipientId) {
-      query.$or = [
-        { recipientId: recipientId },
-        { "sender.email": recipientId },
-      ];
+      // Direct Conversation between two users (Ignore projectId filter for DMs)
+      const regexRecipient = new RegExp(`^${recipientId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
+      if (senderEmail) {
+        const regexSender = new RegExp(`^${senderEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
+        query.$or = [
+          { recipientId: regexRecipient, "sender.email": regexSender },
+          { recipientId: regexSender, "sender.email": regexRecipient },
+          { recipientId: regexRecipient },
+          { "sender.email": regexRecipient },
+        ];
+      } else {
+        query.$or = [
+          { recipientId: regexRecipient },
+          { "sender.email": regexRecipient },
+        ];
+      }
     } else if (channelId) {
       query.channelId = channelId;
+      if (projectId && projectId !== "all") {
+        query.$or = [
+          { projectId: projectId },
+          { projectId: "all" },
+          { projectId: "" },
+          { projectId: { $exists: false } },
+        ];
+      }
+    } else if (projectId && projectId !== "all") {
+      query.projectId = projectId;
     }
 
     const messages = await Message.find(query).sort({ createdAt: 1 }).lean();

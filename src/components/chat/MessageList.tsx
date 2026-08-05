@@ -1,9 +1,7 @@
-"use client";
-
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatMessage } from "@/types";
-import { Play, Pause, Mic, Volume2, Check, CheckCheck, Clock, AlertTriangle, ArrowDown, Copy, CheckCircle2 } from "lucide-react";
+import { Play, Pause, Mic, Volume2, Check, CheckCheck, Clock, AlertTriangle, ArrowDown, Copy, CheckCircle2, Sparkles, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MessageListProps {
@@ -11,6 +9,92 @@ interface MessageListProps {
   currentUserEmail?: string;
   onRetryMessage?: (msg: ChatMessage) => void;
 }
+
+const TranslatedTextBubble: React.FC<{ content: string; isOutgoing?: boolean }> = ({ content, isOutgoing }) => {
+  const [translated, setTranslated] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [loadingTranslate, setLoadingTranslate] = useState(false);
+  const [targetLang, setTargetLang] = useState("English");
+
+  useEffect(() => {
+    const lang = localStorage.getItem("taskconnect_preferred_language") || "English";
+    setTargetLang(lang);
+
+    if (!content || !content.trim()) return;
+
+    let isMounted = true;
+    async function doTranslate() {
+      setLoadingTranslate(true);
+      try {
+        const savedAi = localStorage.getItem("taskconnect_ai_config");
+        let aiConfig = undefined;
+        if (savedAi) {
+          try {
+            aiConfig = JSON.parse(savedAi);
+          } catch (e) {}
+        }
+
+        const res = await fetch("/api/ai/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: content,
+            targetLanguage: lang,
+            aiConfig,
+          }),
+        });
+
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.translatedText && data.translatedText.trim().toLowerCase() !== content.trim().toLowerCase()) {
+            setTranslated(data.translatedText);
+          }
+        }
+      } catch (err) {
+        console.warn("Real-time translation error:", err);
+      } finally {
+        if (isMounted) setLoadingTranslate(false);
+      }
+    }
+
+    doTranslate();
+    return () => {
+      isMounted = false;
+    };
+  }, [content]);
+
+  const displayText = showOriginal || !translated ? content : translated;
+
+  return (
+    <div className="space-y-1">
+      <p className="whitespace-pre-wrap">{displayText}</p>
+
+      {translated && (
+        <div
+          className={cn(
+            "flex items-center gap-1.5 pt-1.5 mt-1 border-t text-[9px] font-bold transition-all",
+            isOutgoing ? "border-white/20 text-emerald-100" : "border-slate-100 text-slate-500"
+          )}
+        >
+          <Sparkles className={cn("w-3 h-3 shrink-0", isOutgoing ? "text-amber-300" : "text-[#006858]")} />
+          <span className="truncate">
+            {showOriginal ? "Original Text" : `AI Translated to ${targetLang}`}
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowOriginal((prev) => !prev)}
+            className={cn(
+              "ml-auto font-black underline hover:opacity-100 cursor-pointer shrink-0",
+              isOutgoing ? "text-white" : "text-[#006858]"
+            )}
+          >
+            {showOriginal ? "Show Translation" : "Show Original"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const VoiceNotePlayer: React.FC<{ audioUrl: string; duration?: string; isOutgoing?: boolean }> = ({
   audioUrl,
@@ -275,7 +359,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                     ) : msg.isCodeSnippet ? (
                       <CodeSnippetBlock code={msg.content} isOutgoing={isOutgoing} />
                     ) : (
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      <TranslatedTextBubble content={msg.content} isOutgoing={isOutgoing} />
                     )}
                   </div>
 

@@ -27,28 +27,30 @@ export async function GET(req: Request) {
 
       if (email) {
         // Query User directly from MongoDB Atlas User collection to verify role
-        const userInDb = await User.findOne({ email });
+        const userInDb = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, "i") } });
 
-        // A user is a Client or Team Member ONLY if explicitly saved as type client/team in MongoDB and NOT a Leader
         const roleLower = (userInDb?.role || "").toLowerCase();
         const typeLower = (userInDb?.type || "").toLowerCase();
 
-        const isLeader =
-          typeLower === "leader" ||
-          roleLower.includes("leader") ||
-          (!typeLower.includes("client") && !typeLower.includes("team") && !roleLower.includes("client") && !roleLower.includes("team"));
+        const isClient =
+          typeLower === "client" ||
+          roleLower.includes("client") ||
+          email.includes("client");
 
-        if (!isLeader && userInDb) {
-          if (typeLower === "client" || roleLower.includes("client")) {
-            query["clients.email"] = email;
-          } else if (typeLower === "team" || roleLower.includes("team")) {
-            query["teamMembers.email"] = email;
-          } else {
-            query.$or = [
-              { "clients.email": email },
-              { "teamMembers.email": email },
-            ];
-          }
+        const isTeam =
+          !isClient &&
+          (typeLower === "team" ||
+            roleLower.includes("team") ||
+            roleLower.includes("developer") ||
+            roleLower.includes("member") ||
+            email.includes("member"));
+
+        const isLeader = !isClient && !isTeam;
+
+        if (isClient) {
+          query["clients.email"] = { $regex: new RegExp(`^${email}$`, "i") };
+        } else if (isTeam) {
+          query["teamMembers.email"] = { $regex: new RegExp(`^${email}$`, "i") };
         }
       }
 

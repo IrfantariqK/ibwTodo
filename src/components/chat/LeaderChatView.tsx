@@ -84,7 +84,7 @@ export const LeaderChatView: React.FC = () => {
     try {
       let url = `/api/chat?`;
       if (activeRecipient) {
-        url += `recipientId=${encodeURIComponent(activeRecipient.email)}`;
+        url += `recipientId=${encodeURIComponent(activeRecipient.email)}&senderEmail=${encodeURIComponent(currentUser.email)}`;
       } else {
         url += `channelId=${encodeURIComponent(activeChannel)}`;
       }

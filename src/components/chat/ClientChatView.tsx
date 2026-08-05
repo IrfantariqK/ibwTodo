@@ -10,10 +10,19 @@ import { playSendSound } from "@/lib/sound";
 import { useChatSocket } from "@/hooks/useChatSocket";
 import { cn } from "@/lib/utils";
 
+const defaultLeaderMember: ProjectMember = {
+  id: "leader-contact",
+  name: "Irfan Tariq",
+  email: "leader@taskconnect.io",
+  role: "Project Leader / Manager",
+  type: "leader",
+  avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Irfan",
+};
+
 export const ClientChatView: React.FC = () => {
   const { activeProject } = useProject();
-  const [activeChannel, setActiveChannel] = useState("general");
-  const [activeRecipient, setActiveRecipient] = useState<ProjectMember | null>(null);
+  const [activeChannel, setActiveChannel] = useState("leader@taskconnect.io");
+  const [activeRecipient, setActiveRecipient] = useState<ProjectMember | null>(defaultLeaderMember);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -84,7 +93,7 @@ export const ClientChatView: React.FC = () => {
     try {
       let url = `/api/chat?`;
       if (activeRecipient) {
-        url += `recipientId=${encodeURIComponent(activeRecipient.email)}`;
+        url += `recipientId=${encodeURIComponent(activeRecipient.email)}&senderEmail=${encodeURIComponent(currentUser.email)}`;
       } else {
         url += `channelId=${encodeURIComponent(activeChannel)}`;
       }

@@ -69,7 +69,10 @@ export function useChatSocket({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const eventSource = new EventSource("/api/chat/stream");
+    const streamUrl = userEmail
+      ? `/api/chat/stream?email=${encodeURIComponent(userEmail)}`
+      : "/api/chat/stream";
+    const eventSource = new EventSource(streamUrl);
     eventSourceRef.current = eventSource;
 
     eventSource.onmessage = (event) => {

@@ -44,10 +44,19 @@ export default function LoginRoutePage() {
       const userObj = {
         name: data.user.name,
         email: data.user.email,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.user.email)}`,
+        role: data.user.role || "",
+        type: data.user.type || "",
+        avatar: data.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.user.email)}`,
       };
       localStorage.setItem("taskconnect_user", JSON.stringify(userObj));
-      router.push("/dashboard");
+
+      if (data.user.type === "client" || (data.user.role || "").toLowerCase().includes("client")) {
+        router.push("/client/dashboard");
+      } else if (data.user.type === "team" || (data.user.role || "").toLowerCase().includes("team")) {
+        router.push("/member/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
       router.refresh();
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");

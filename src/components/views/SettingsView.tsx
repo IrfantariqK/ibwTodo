@@ -34,7 +34,8 @@ export const SettingsView: React.FC = () => {
   const [workspaceName, setWorkspaceName] = useState("TaskConnect Enterprise");
   const [emailNotifications, setEmailNotifications] = useState(true);
 
-  // AI Configuration State
+  // AI & Language Configuration State
+  const [preferredLanguage, setPreferredLanguage] = useState("English");
   const [aiProvider, setAiProvider] = useState<"local" | "gemini" | "openai" | "custom">("local");
   const [aiApiKey, setAiApiKey] = useState("");
   const [aiEndpoint, setAiEndpoint] = useState("http://localhost:11434/v1");
@@ -48,6 +49,9 @@ export const SettingsView: React.FC = () => {
 
   // Load saved AI configuration on mount
   useEffect(() => {
+    const savedLang = localStorage.getItem("taskconnect_preferred_language");
+    if (savedLang) setPreferredLanguage(savedLang);
+
     const savedConfig = localStorage.getItem("taskconnect_ai_config");
     if (savedConfig) {
       try {
@@ -172,6 +176,7 @@ export const SettingsView: React.FC = () => {
     };
 
     localStorage.setItem("taskconnect_ai_config", JSON.stringify(configPayload));
+    localStorage.setItem("taskconnect_preferred_language", preferredLanguage);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -414,14 +419,14 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* ── SECTION 2: GENERAL WORKSPACE DETAILS ── */}
-        <div className="modern-card rounded-3xl p-6 bg-white border border-slate-200/90 shadow-sm space-y-4">
+        {/* ── SECTION 2: GENERAL WORKSPACE & DISPLAY LANGUAGE ── */}
+        <div className="modern-card rounded-3xl p-6 bg-white border border-slate-200/90 shadow-sm space-y-5">
           <h3 className="font-extrabold text-base flex items-center gap-2 text-[#0F172A]">
-            <User className="w-4 h-4 text-[#006858]" />
-            General Information
+            <Globe className="w-4 h-4 text-[#006858]" />
+            Workspace & AI Translation Language
           </h3>
 
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-600 block mb-1">Workspace Title</label>
               <input
@@ -430,6 +435,34 @@ export const SettingsView: React.FC = () => {
                 onChange={(e) => setWorkspaceName(e.target.value)}
                 className="w-full bg-slate-50 text-slate-900 font-bold p-2.5 rounded-xl border border-slate-200 focus:border-[#006858] text-xs"
               />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1 flex items-center justify-between">
+                <span>Preferred Display Language</span>
+                <span className="text-[10px] text-[#006858] font-black">AI Real-Time Translate</span>
+              </label>
+              <select
+                value={preferredLanguage}
+                onChange={(e) => {
+                  setPreferredLanguage(e.target.value);
+                  localStorage.setItem("taskconnect_preferred_language", e.target.value);
+                }}
+                className="w-full bg-slate-50 text-slate-900 font-bold p-2.5 rounded-xl border border-slate-200 focus:border-[#006858] text-xs cursor-pointer"
+              >
+                <option value="English">English (United States)</option>
+                <option value="Spanish">Spanish (Español)</option>
+                <option value="French">French (Français)</option>
+                <option value="German">German (Deutsch)</option>
+                <option value="Arabic">Arabic (العربية)</option>
+                <option value="Urdu">Urdu / Hindi (اردو / हिंदी)</option>
+                <option value="Japanese">Japanese (日本語)</option>
+                <option value="Chinese">Chinese (中文)</option>
+                <option value="Russian">Russian (Русский)</option>
+                <option value="Portuguese">Portuguese (Português)</option>
+                <option value="Italian">Italian (Italiano)</option>
+                <option value="Turkish">Turkish (Türkçe)</option>
+              </select>
             </div>
           </div>
         </div>

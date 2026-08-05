@@ -4,12 +4,24 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const email = (searchParams.get("email") || "").toLowerCase().trim();
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     start(controller) {
       // Send initial heartbeat
       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "connected" })}\n\n`));
+
+      // Broadcast online status if email provided
+      if (email) {
+        try {
+          chatEmitter.emit("chat:event", {
+            type: "presence:update",
+            payload: { email, isOnline: true },
+          });
+        } catch (e) {}
+      }
 
       const onChatEvent = (eventData: any) => {
         try {
@@ -34,6 +46,16 @@ export async function GET(req: Request) {
       req.signal.addEventListener("abort", () => {
         chatEmitter.off("chat:event", onChatEvent);
         clearInterval(heartbeatTimer);
+
+        if (email) {
+          try {
+            chatEmitter.emit("chat:event", {
+              type: "presence:update",
+              payload: { email, isOnline: false },
+            });
+          } catch (e) {}
+        }
+
         try {
           controller.close();
         } catch (e) {}

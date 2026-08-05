@@ -31,15 +31,58 @@ const ProjectContext = createContext<ProjectContextType>({
   isTeam: false,
 });
 
+const getInitialUserState = () => {
+  if (typeof window === "undefined") {
+    return { isLeader: true, isClient: false, isTeam: false, role: "Project Leader", type: "leader" };
+  }
+  try {
+    const saved = localStorage.getItem("taskconnect_user");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const roleLower = (parsed.role || "").toLowerCase().trim();
+      const typeLower = (parsed.type || "").toLowerCase().trim();
+      const emailLower = (parsed.email || "").toLowerCase().trim();
+
+      const clientFlag =
+        typeLower === "client" ||
+        roleLower.includes("client") ||
+        emailLower.includes("client");
+
+      const teamFlag =
+        !clientFlag &&
+        (typeLower === "team" ||
+          roleLower.includes("team") ||
+          roleLower.includes("developer") ||
+          roleLower.includes("member") ||
+          emailLower.includes("member"));
+
+      const leaderFlag = !clientFlag && !teamFlag;
+
+      return {
+        isLeader: leaderFlag,
+        isClient: clientFlag,
+        isTeam: teamFlag,
+        role: parsed.role || (clientFlag ? "Client Contact" : teamFlag ? "Team Member" : "Project Leader"),
+        type: clientFlag ? "client" : teamFlag ? "team" : "leader",
+      };
+    }
+  } catch (e) {}
+  return { isLeader: true, isClient: false, isTeam: false, role: "Project Leader", type: "leader" };
+};
+
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [initialState] = useState(getInitialUserState);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [activeProjectId, setActiveProjectIdState] = useState<string>("all");
+  const [activeProjectId, setActiveProjectIdState] = useState<string>(() => {
+    if (!initialState.isLeader) return "";
+    return "all";
+  });
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState("");
-  const [userType, setUserType] = useState("");
-  const [isLeader, setIsLeader] = useState(true);
-  const [isClient, setIsClient] = useState(false);
-  const [isTeam, setIsTeam] = useState(false);
+  const [userRole, setUserRole] = useState(initialState.role);
+  const [userType, setUserType] = useState(initialState.type);
+  const [isLeader, setIsLeader] = useState(initialState.isLeader);
+  const [isClient, setIsClient] = useState(initialState.isClient);
+  const [isTeam, setIsTeam] = useState(initialState.isTeam);
 
   const fetchProjects = async () => {
     try {
@@ -59,15 +102,27 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       }
 
-      const roleLower = (roleVal || "").toLowerCase();
-      const typeLower = (typeVal || "").toLowerCase();
+      const roleLower = (roleVal || "").toLowerCase().trim();
+      const typeLower = (typeVal || "").toLowerCase().trim();
+      const emailLower = (userEmail || "").toLowerCase().trim();
 
-      const clientFlag = typeLower === "client" || roleLower.includes("client");
-      const teamFlag = typeLower === "team" || roleLower.includes("team");
+      const clientFlag =
+        typeLower === "client" ||
+        roleLower.includes("client") ||
+        emailLower.includes("client");
+
+      const teamFlag =
+        !clientFlag &&
+        (typeLower === "team" ||
+          roleLower.includes("team") ||
+          roleLower.includes("developer") ||
+          roleLower.includes("member") ||
+          emailLower.includes("member"));
+
       const leaderFlag = !clientFlag && !teamFlag;
 
-      setUserRole(roleVal);
-      setUserType(typeVal);
+      setUserRole(roleVal || (clientFlag ? "Client Contact" : teamFlag ? "Team Member" : "Project Leader"));
+      setUserType(clientFlag ? "client" : teamFlag ? "team" : "leader");
       setIsLeader(leaderFlag);
       setIsClient(clientFlag);
       setIsTeam(teamFlag);

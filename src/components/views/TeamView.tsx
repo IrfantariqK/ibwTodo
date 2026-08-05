@@ -59,18 +59,20 @@ export const TeamView: React.FC = () => {
       }
     });
 
-    // 3. Add Client Contacts of project
-    (proj.clients || []).forEach((cl) => {
-      const emailKey = (cl.email || "").toLowerCase().trim();
-      if (emailKey && !memberMap.has(emailKey)) {
-        memberMap.set(emailKey, {
-          ...cl,
-          isLeaderCard: false,
-          isClientCard: true,
-          projectName: proj.name,
-        });
-      }
-    });
+    // 3. Add Client Contacts of project (Excluding for Client accounts: Clients only see Leader & Team Members)
+    if (!isClient) {
+      (proj.clients || []).forEach((cl) => {
+        const emailKey = (cl.email || "").toLowerCase().trim();
+        if (emailKey && !memberMap.has(emailKey)) {
+          memberMap.set(emailKey, {
+            ...cl,
+            isLeaderCard: false,
+            isClientCard: true,
+            projectName: proj.name,
+          });
+        }
+      });
+    }
   });
 
   const allMembers = Array.from(memberMap.values());
