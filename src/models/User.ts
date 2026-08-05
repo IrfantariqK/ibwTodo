@@ -11,6 +11,9 @@ export interface IUser extends Document {
   verificationOtp?: string;
   otpExpiresAt?: Date;
   avatar: string;
+  isOnline?: boolean;
+  presenceStatus?: "online" | "offline" | "busy";
+  lastActive?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +30,9 @@ const UserSchema: Schema = new Schema(
     verificationOtp: { type: String, default: "" },
     otpExpiresAt: { type: Date },
     avatar: { type: String, default: "" },
+    isOnline: { type: Boolean, default: false },
+    presenceStatus: { type: String, enum: ["online", "offline", "busy"], default: "offline" },
+    lastActive: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );

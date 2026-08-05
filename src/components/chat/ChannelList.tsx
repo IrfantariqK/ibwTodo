@@ -203,16 +203,16 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   const showClientsSection = !isClient && displayClients.length > 0; // HIDE COMPLETELY FOR CLIENT ROLE
 
   const renderPresenceBadge = (emailStr: string) => {
-    const status = presenceMap[emailStr.toLowerCase().trim()] || "online";
-    let bgClass = "bg-emerald-500";
-    let title = "Online";
+    const status = presenceMap[emailStr.toLowerCase().trim()] || "offline";
+    let bgClass = "bg-slate-400";
+    let title = "Offline";
 
-    if (status === "busy") {
-      bgClass = "bg-amber-400";
+    if (status === "online") {
+      bgClass = "bg-emerald-500";
+      title = "Online";
+    } else if (status === "busy") {
+      bgClass = "bg-amber-500";
       title = "Busy";
-    } else if (status === "offline") {
-      bgClass = "bg-rose-500";
-      title = "Offline";
     }
 
     return (

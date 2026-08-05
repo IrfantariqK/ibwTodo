@@ -6,6 +6,8 @@ import User from "@/models/User";
 import Project from "@/models/Project";
 import Invitation from "@/models/Invitation";
 
+import { chatEmitter } from "@/lib/chatEvents";
+
 const JWT_SECRET = process.env.JWT_SECRET || "ibwtech_taskconnect_secret";
 
 export async function POST(req: Request) {
@@ -104,12 +106,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // Activate account if password was valid
-    if (userDoc.status !== "Active" || !userDoc.isVerified) {
-      userDoc.status = "Active";
-      userDoc.isVerified = true;
-      await userDoc.save();
-    }
+    // Activate account if password was valid and mark presence as Online
+    userDoc.status = "Active";
+    userDoc.isVerified = true;
+    userDoc.isOnline = true;
+    userDoc.presenceStatus = "online";
+    userDoc.lastActive = new Date();
+    await userDoc.save();
+
+    try {
+      chatEmitter.emit("chat:event", {
+        type: "presence:update",
+        payload: { email: cleanEmail, presenceStatus: "online", isOnline: true },
+      });
+    } catch (e) {}
 
     const isClient = userDoc.type === "client" || userDoc.role?.toLowerCase().includes("client");
     const isTeam = userDoc.type === "team" || userDoc.role?.toLowerCase().includes("team");

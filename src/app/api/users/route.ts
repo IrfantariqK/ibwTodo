@@ -41,9 +41,9 @@ export async function GET(req: Request) {
         role: u.role || (detectedType === "leader" ? "Project Leader" : detectedType === "client" ? "Client Contact" : "Team Member"),
         type: detectedType,
         avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.name || "User")}`,
-        isOnline: u.status === "Active" || u.isVerified || true,
-        presenceStatus: u.presenceStatus || "online", // "online" | "offline" | "busy"
-        lastSeen: u.updatedAt || u.createdAt || new Date(),
+        isOnline: Boolean(u.isOnline),
+        presenceStatus: u.presenceStatus || (u.isOnline ? "online" : "offline"),
+        lastSeen: u.lastActive || u.updatedAt || u.createdAt || new Date(),
       };
     });
 
@@ -61,8 +61,8 @@ export async function GET(req: Request) {
           role: "Project Leader / Workspace Admin",
           type: "leader",
           avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Irfan",
-          isOnline: true,
-          presenceStatus: "online",
+          isOnline: false,
+          presenceStatus: "offline",
           lastSeen: new Date(),
         },
       ];
@@ -77,8 +77,8 @@ export async function GET(req: Request) {
           role: "Client Contact",
           type: "client",
           avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Client",
-          isOnline: true,
-          presenceStatus: "online",
+          isOnline: false,
+          presenceStatus: "offline",
           lastSeen: new Date(),
         },
       ];

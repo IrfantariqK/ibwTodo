@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Search, Bell, LogOut, Briefcase, ChevronDown, Check, Crown, Plus, FolderPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useProject } from "@/context/ProjectContext";
+import { cn } from "@/lib/utils";
 
 interface LeaderHeaderProps {
   searchQuery?: string;
@@ -55,9 +56,28 @@ export const LeaderHeader: React.FC<LeaderHeaderProps> = ({
     }
   }, []);
 
+  const [currentStatus, setCurrentStatus] = useState<"online" | "busy" | "offline">("online");
+
+  const handleUpdateStatus = async (status: "online" | "busy" | "offline") => {
+    setCurrentStatus(status);
+    try {
+      await fetch("/api/user/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, presenceStatus: status }),
+      });
+    } catch (err) {
+      console.warn("Failed to update status:", err);
+    }
+  };
+
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      });
       localStorage.removeItem("taskconnect_user");
       localStorage.removeItem("taskconnect_active_project");
       router.push("/leader/login");
@@ -175,15 +195,23 @@ export const LeaderHeader: React.FC<LeaderHeaderProps> = ({
             onClick={() => setShowUserMenu(!showUserMenu)}
             className="flex items-center gap-3 p-1 rounded-full hover:bg-slate-100 transition-colors"
           >
-            <img
-              src={user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`}
-              alt={user.name}
-              className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-200 object-cover ring-2 ring-[#006858]/30"
-            />
+            <div className="relative">
+              <img
+                src={user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`}
+                alt={user.name}
+                className="w-9 h-9 rounded-full bg-emerald-50 border border-emerald-200 object-cover ring-2 ring-[#006858]/30"
+              />
+              <span
+                className={cn(
+                  "w-2.5 h-2.5 rounded-full absolute -bottom-0.5 -right-0.5 ring-2 ring-white shadow-2xs",
+                  currentStatus === "online" ? "bg-emerald-500" : currentStatus === "busy" ? "bg-amber-500" : "bg-slate-400"
+                )}
+              />
+            </div>
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl p-2 shadow-xl border border-slate-100 z-50 animate-in fade-in slide-in-from-top-2">
+            <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl p-2 shadow-xl border border-slate-100 z-50 animate-in fade-in slide-in-from-top-2">
               <div className="px-3 py-2 border-b border-slate-100 mb-1">
                 <p className="text-xs font-bold text-slate-800 truncate">{user.name}</p>
                 <p className="text-[11px] text-slate-400 truncate">{user.email}</p>
@@ -191,10 +219,48 @@ export const LeaderHeader: React.FC<LeaderHeaderProps> = ({
                   Leader / Admin
                 </span>
               </div>
+
+              {/* Status Picker */}
+              <div className="px-3 py-2 border-b border-slate-100 space-y-1">
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Set Status</p>
+                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus("online")}
+                    className={cn(
+                      "flex-1 py-1 rounded-lg text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all cursor-pointer",
+                      currentStatus === "online" ? "bg-emerald-500 text-white shadow-2xs" : "text-slate-600 hover:bg-slate-200/60"
+                    )}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" /> Online
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus("busy")}
+                    className={cn(
+                      "flex-1 py-1 rounded-lg text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all cursor-pointer",
+                      currentStatus === "busy" ? "bg-amber-500 text-white shadow-2xs" : "text-slate-600 hover:bg-slate-200/60"
+                    )}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" /> Busy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus("offline")}
+                    className={cn(
+                      "flex-1 py-1 rounded-lg text-[10px] font-extrabold flex items-center justify-center gap-1 transition-all cursor-pointer",
+                      currentStatus === "offline" ? "bg-slate-600 text-white shadow-2xs" : "text-slate-600 hover:bg-slate-200/60"
+                    )}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" /> Offline
+                  </button>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer mt-1"
               >
                 <LogOut className="w-4 h-4" />
                 Sign Out
