@@ -88,18 +88,22 @@ export const ClientChatView: React.FC = () => {
     onTypingStateChange: handleSocketTypingState,
   });
 
-  const fetchMessages = async () => {
-    setLoading(true);
+  const activeRecipientEmail = activeRecipient?.email || "";
+  const activeProjectId = activeProject ? (activeProject.id || activeProject._id || "") : "";
+
+  const fetchMessages = async (isInitial = false) => {
+    if (isInitial || messages.length === 0) {
+      setLoading(true);
+    }
     try {
       let url = `/api/chat?`;
-      if (activeRecipient) {
-        url += `recipientId=${encodeURIComponent(activeRecipient.email)}&senderEmail=${encodeURIComponent(currentUser.email)}`;
+      if (activeRecipientEmail) {
+        url += `recipientId=${encodeURIComponent(activeRecipientEmail)}&senderEmail=${encodeURIComponent(currentUser.email)}`;
       } else {
         url += `channelId=${encodeURIComponent(activeChannel)}`;
       }
-      if (activeProject) {
-        const pId = activeProject.id || activeProject._id;
-        if (pId) url += `&projectId=${encodeURIComponent(pId)}`;
+      if (activeProjectId) {
+        url += `&projectId=${encodeURIComponent(activeProjectId)}`;
       }
 
       const res = await fetch(url, {
@@ -126,8 +130,8 @@ export const ClientChatView: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchMessages();
-  }, [activeChannel, activeRecipient, activeProject]);
+    fetchMessages(true);
+  }, [activeChannel, activeRecipientEmail, activeProjectId]);
 
   const handleSelectChannel = (channelId: string, recipient?: ProjectMember) => {
     if (recipient) {

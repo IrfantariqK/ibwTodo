@@ -20,7 +20,7 @@ const TranslatedTextBubble: React.FC<{ content: string; isOutgoing?: boolean }> 
     const lang = localStorage.getItem("taskconnect_preferred_language") || "English";
     setTargetLang(lang);
 
-    if (!content || !content.trim()) return;
+    if (lang === "English" || !content || !content.trim()) return;
 
     let isMounted = true;
     async function doTranslate() {

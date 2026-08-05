@@ -151,29 +151,8 @@ export const LeaderHeader: React.FC<LeaderHeaderProps> = ({
         </div>
       </div>
 
-      {/* Right Controls: Quick Add Triggers, Notifications & Profile Menu */}
+      {/* Right Controls: Role Badge, Notifications & Profile Menu */}
       <div className="flex items-center gap-3">
-        {onOpenCreateProject && (
-          <button
-            type="button"
-            onClick={onOpenCreateProject}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-colors cursor-pointer shadow-sm"
-          >
-            <FolderPlus className="w-3.5 h-3.5" />
-            <span>New Project</span>
-          </button>
-        )}
-
-        {onOpenQuickAdd && (
-          <button
-            type="button"
-            onClick={onOpenQuickAdd}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-purple-900 hover:bg-purple-950 text-white text-xs font-bold transition-colors cursor-pointer shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Task</span>
-          </button>
-        )}
 
         <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-900 border border-purple-300 text-[11px] font-extrabold">
           <Crown className="w-3.5 h-3.5 text-purple-700" />
