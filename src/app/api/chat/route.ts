@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import Message from "@/models/Message";
 import Activity from "@/models/Activity";
+import { chatEmitter } from "@/lib/chatEvents";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+};
 
 export async function GET(req: Request) {
   try {
@@ -11,7 +20,7 @@ export async function GET(req: Request) {
     const projectId = searchParams.get("projectId");
 
     const db = await connectToDatabase();
-    if (!db) return NextResponse.json([]);
+    if (!db) return NextResponse.json([], { headers: NO_CACHE_HEADERS });
 
     const query: any = {};
     if (projectId && projectId !== "all") {
@@ -32,10 +41,10 @@ export async function GET(req: Request) {
       id: m._id ? m._id.toString() : m.id,
     }));
 
-    return NextResponse.json(formatted);
+    return NextResponse.json(formatted, { headers: NO_CACHE_HEADERS });
   } catch (error) {
     console.error("GET /api/chat error:", error);
-    return NextResponse.json([]);
+    return NextResponse.json([], { headers: NO_CACHE_HEADERS });
   }
 }
 
@@ -87,7 +96,12 @@ export async function POST(req: Request) {
     const result = {
       ...doc.toObject(),
       id: doc._id.toString(),
+      status: "delivered",
     };
+
+    try {
+      chatEmitter.emit("chat:event", { type: "message:new", payload: result });
+    } catch (e) {}
 
     return NextResponse.json(result, { status: 201 });
   } catch (error: any) {

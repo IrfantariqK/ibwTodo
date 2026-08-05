@@ -5,6 +5,7 @@ import { CalendarEventItem } from "@/types";
 import { EventCard } from "./EventCard";
 import { AddEventModal } from "./AddEventModal";
 import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   ChevronLeft,
   ChevronRight,
@@ -32,8 +33,9 @@ const monthNames = [
 ];
 
 export const CalendarView: React.FC = () => {
-  const { activeProject } = useProject();
+  const { projects: contextProjects, activeProject, activeProjectId, isLeader } = useProject();
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEventItem | null>(null);
 
@@ -68,24 +70,47 @@ export const CalendarView: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
+      setLoading(true);
       let url = "/api/calendar";
-      if (activeProject) {
+      if (activeProject && activeProjectId !== "all") {
         const pId = activeProject.id || activeProject._id;
         if (pId) url += `?projectId=${encodeURIComponent(pId)}`;
       }
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
-        const data = await res.json();
-        setEvents(data);
+        const data: CalendarEventItem[] = await res.json();
+        let allowedProjects = contextProjects;
+        if (!isLeader) {
+          allowedProjects = activeProject ? [activeProject] : contextProjects;
+        } else if (activeProject && activeProjectId !== "all") {
+          allowedProjects = [activeProject];
+        }
+
+        const allowedProjectIds = new Set(allowedProjects.map((p) => (p.id || p._id || "").toString()));
+
+        const filtered = data.filter((evt) => {
+          const pId = (evt.projectId || "").toString();
+          if (activeProject && activeProjectId !== "all") {
+            return pId === (activeProject.id || activeProject._id || "").toString();
+          }
+          return allowedProjectIds.has(pId) || allowedProjects.length === 0;
+        });
+
+        setEvents(filtered);
       }
     } catch (err) {
       console.warn("Failed to fetch calendar API:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchEvents();
-  }, [activeProject]);
+  }, [activeProject, activeProjectId, contextProjects, isLeader]);
 
   const handleAddEvent = async (newEvent: CalendarEventItem) => {
     const payload = {

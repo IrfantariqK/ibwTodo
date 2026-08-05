@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Hash, Zap, Code, Palette, Users, User, Plus, MessageSquare, Building } from "lucide-react";
+import { Hash, Zap, Code, Palette, Users, User, Plus, MessageSquare, Building, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProject } from "@/context/ProjectContext";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ProjectMember } from "@/types";
 
 interface ChannelItem {
@@ -33,39 +34,69 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   activeChannel,
   onSelectChannel,
 }) => {
-  const { projects, activeProject } = useProject();
+  const { projects, activeProject, isLeader, isClient, isTeam } = useProject();
   const [channels, setChannels] = useState<ChannelItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [isDM, setIsDM] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState("");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("taskconnect_user");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setCurrentUserEmail((parsed.email || "").toLowerCase().trim());
+      } catch (e) {}
+    }
+  }, []);
 
   useEffect(() => {
     async function fetchChannels() {
       try {
-        const pId = activeProject ? activeProject.id || activeProject._id : "all";
-        const res = await fetch(`/api/chat/channels?projectId=${encodeURIComponent(pId!)}`);
+        setLoading(true);
+        let pId = activeProject ? activeProject.id || activeProject._id : "all";
+        if (!isLeader && projects.length > 0) {
+          const targetProj = activeProject || projects[0];
+          pId = targetProj.id || targetProj._id || "";
+        }
+        const roleParam = isLeader ? "leader" : isClient ? "client" : "team";
+        const queryParams = new URLSearchParams();
+        if (pId) queryParams.set("projectId", pId);
+        if (currentUserEmail) queryParams.set("email", currentUserEmail);
+        queryParams.set("role", roleParam);
+
+        const res = await fetch(`/api/chat/channels?${queryParams.toString()}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
         if (res.ok) {
           const data = await res.json();
           setChannels(data);
         }
       } catch (err) {
         console.warn("Failed to fetch channels:", err);
+      } finally {
+        setLoading(false);
       }
     }
     fetchChannels();
-  }, [activeProject]);
+  }, [activeProject, projects, isLeader, isClient, isTeam, currentUserEmail]);
 
   const handleCreateChannel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChannelName.trim()) return;
 
-    const pId = activeProject ? activeProject.id || activeProject._id : "";
+    const pId = activeProject
+      ? activeProject.id || activeProject._id
+      : projects[0]?.id || projects[0]?._id || "";
 
     const channelPayload = {
       id: isDM ? `dm-${Date.now()}` : newChannelName.toLowerCase().replace(/\s+/g, "-"),
       projectId: pId,
       name: newChannelName.trim(),
-      topic: isDM ? "Direct Conversation" : "Custom Project Channel",
+      topic: isDM ? "Direct Conversation" : "Project Channel",
       icon: isDM ? "User" : "Hash",
       isDirectMessage: isDM,
     };
@@ -91,22 +122,43 @@ export const ChannelList: React.FC<ChannelListProps> = ({
 
   const publicChannels = channels.filter((c) => !c.isDirectMessage);
 
-  // Active project clients and team members OR all workspace contacts if "All Projects" is selected
-  const displayClients: ProjectMember[] = activeProject
+  // Active project clients and team members OR all workspace contacts
+  // STRICT RULE: EXCLUDE THE LOGGED IN USER'S OWN EMAIL
+  const rawClients: ProjectMember[] = activeProject
     ? (activeProject.clients || [])
     : Array.from(
         new Map(
-          projects.flatMap((p) => p.clients || []).map((c) => [c.email?.toLowerCase(), c])
+          projects.flatMap((p) => p.clients || []).map((c) => [(c.email || "").toLowerCase().trim(), c])
         ).values()
       );
 
-  const displayTeam: ProjectMember[] = activeProject
+  const displayClients = rawClients.filter(
+    (c) => (c.email || "").toLowerCase().trim() !== currentUserEmail
+  );
+
+  const rawTeam: ProjectMember[] = activeProject
     ? (activeProject.teamMembers || [])
     : Array.from(
         new Map(
-          projects.flatMap((p) => p.teamMembers || []).map((m) => [m.email?.toLowerCase(), m])
+          projects.flatMap((p) => p.teamMembers || []).map((m) => [(m.email || "").toLowerCase().trim(), m])
         ).values()
       );
+
+  const displayTeam = rawTeam.filter(
+    (m) => (m.email || "").toLowerCase().trim() !== currentUserEmail
+  );
+
+  // Project Leader Contact details for Clients and Team Members
+  const leaderContact: ProjectMember = {
+    id: "leader-contact",
+    name: "Irfan Tariq",
+    email: "leader@taskconnect.io",
+    role: "Project Leader / Manager",
+    type: "leader",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Irfan",
+  };
+
+  const showLeaderContact = !isLeader && leaderContact.email.toLowerCase().trim() !== currentUserEmail;
 
   return (
     <div className="w-64 bg-[#F8FAFC] border-r border-slate-200/90 flex flex-col justify-between h-full p-4 font-sans shrink-0">
@@ -115,21 +167,27 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         <div className="flex items-center justify-between px-2 pt-1">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-[#006858]" />
-            <h2 className="font-extrabold text-sm text-[#0F172A]">Workspace Chat</h2>
+            <h2 className="font-extrabold text-sm text-[#0F172A]">
+              {isLeader ? "Leader Messages" : isClient ? "Client Messages" : "Team Messages"}
+            </h2>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-emerald-50 text-[#006858] transition-colors cursor-pointer shadow-2xs"
-            title="Create Channel or DM"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
+          {isLeader && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-emerald-50 text-[#006858] transition-colors cursor-pointer shadow-2xs"
+              title="Create Channel or DM"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Selected Project Indicator Banner */}
         <div className="px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-200/80 text-[11px] font-bold text-[#006858]">
           <p className="uppercase tracking-wider text-[9px] text-[#006858]/70">Project Context</p>
-          <p className="truncate font-black">{activeProject ? activeProject.name : "All Projects Scope"}</p>
+          <p className="truncate font-black">
+            {activeProject ? activeProject.name : isLeader ? "All Projects Scope" : (projects[0]?.name || "Assigned Project")}
+          </p>
         </div>
 
         {/* Public Channels Section */}
@@ -142,35 +200,79 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           </div>
 
           <div className="space-y-1">
-            {publicChannels.map((channel) => {
-              const Icon = (channel.icon && iconMap[channel.icon]) || Hash;
-              const isActive = activeChannel === channel.id;
+            {loading ? (
+              <div className="space-y-2 p-1">
+                <Skeleton className="h-7 rounded-xl" />
+                <Skeleton className="h-7 rounded-xl" />
+              </div>
+            ) : (
+              publicChannels.map((channel) => {
+                const Icon = (channel.icon && iconMap[channel.icon]) || Hash;
+                const isActive = activeChannel === channel.id;
 
-              return (
-                <button
-                  key={channel.id}
-                  onClick={() => onSelectChannel(channel.id)}
-                  className={cn(
-                    "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
-                    isActive
-                      ? "bg-white text-[#006858] shadow-sm border border-[#006858]/30 font-extrabold"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                  )}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon
-                      className={cn(
-                        "w-4 h-4 shrink-0",
-                        isActive ? "text-[#006858]" : "text-slate-400"
-                      )}
-                    />
-                    <span className="truncate">#{channel.name}</span>
-                  </div>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={channel.id}
+                    onClick={() => onSelectChannel(channel.id)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                      isActive
+                        ? "bg-white text-[#006858] shadow-sm border border-[#006858]/30 font-extrabold"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon
+                        className={cn(
+                          "w-4 h-4 shrink-0",
+                          isActive ? "text-[#006858]" : "text-slate-400"
+                        )}
+                      />
+                      <span className="truncate">#{channel.name}</span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
+
+        {/* PROJECT LEADER DIRECT CONTACT (Shown ONLY to Clients & Team Members) */}
+        {showLeaderContact && (
+          <div className="space-y-1 pt-2 border-t border-slate-200/60">
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-purple-600 px-2.5 mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <Crown className="w-3 h-3 text-purple-600" /> PROJECT LEADER
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onSelectChannel(leaderContact.email, leaderContact)}
+              className={cn(
+                "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer text-left",
+                activeChannel === leaderContact.email
+                  ? "bg-purple-50 text-purple-900 shadow-sm border border-purple-300 font-extrabold"
+                  : "bg-white/80 text-slate-700 hover:bg-purple-50/50 border border-slate-200/80"
+              )}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="relative shrink-0">
+                  <img
+                    src={leaderContact.avatar}
+                    alt={leaderContact.name}
+                    className="w-6 h-6 rounded-full object-cover bg-purple-50 ring-1 ring-purple-400"
+                  />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 absolute -bottom-0.5 -right-0.5 ring-1 ring-white" />
+                </div>
+                <div className="truncate">
+                  <p className="truncate leading-none text-purple-950 font-black">{leaderContact.name}</p>
+                  <p className="text-[9px] text-purple-700 font-bold truncate mt-0.5">{leaderContact.role}</p>
+                </div>
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* CLIENTS DIRECT MESSAGES SECTION */}
         {displayClients.length > 0 && (
@@ -224,7 +326,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         <div className="space-y-1 pt-2 border-t border-slate-200/60">
           <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2.5 mb-1 flex items-center justify-between">
             <span className="flex items-center gap-1">
-              <Users className="w-3 h-3 text-[#006858]" /> DIRECT MESSAGES
+              <Users className="w-3 h-3 text-[#006858]" /> TEAM MEMBERS
             </span>
             <span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full text-[9px]">
               {displayTeam.length}
@@ -266,7 +368,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               })
             ) : (
               <div className="px-3 py-2 text-[11px] text-slate-400 font-medium italic">
-                No direct message contacts found.
+                No other team contacts.
               </div>
             )}
           </div>

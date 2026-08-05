@@ -17,6 +17,10 @@ export interface IMessage extends Document {
   isVoiceNote?: boolean;
   audioUrl?: string;
   audioDuration?: string;
+  seen?: boolean;
+  seenAt?: Date;
+  seenBy?: string;
+  status?: "pending" | "sent" | "delivered" | "seen";
   createdAt: Date;
 }
 
@@ -43,6 +47,10 @@ const MessageSchema: Schema = new Schema(
     isVoiceNote: { type: Boolean, default: false },
     audioUrl: { type: String, default: "" },
     audioDuration: { type: String, default: "0:00" },
+    seen: { type: Boolean, default: false },
+    seenAt: { type: Date },
+    seenBy: { type: String, default: "" },
+    status: { type: String, enum: ["pending", "sent", "delivered", "seen"], default: "delivered" },
   },
   { timestamps: true }
 );

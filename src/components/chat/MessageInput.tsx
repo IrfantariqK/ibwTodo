@@ -7,14 +7,25 @@ import { cn } from "@/lib/utils";
 interface MessageInputProps {
   onSendMessage: (content: string, isCode: boolean) => void;
   onSendVoiceNote?: (audioUrl: string, duration: string) => void;
+  onTyping?: () => void;
+  isSending?: boolean;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
   onSendMessage,
   onSendVoiceNote,
+  onTyping,
+  isSending = false,
 }) => {
   const [content, setContent] = useState("");
   const [isCodeSnippet, setIsCodeSnippet] = useState(false);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+    if (onTyping) {
+      onTyping();
+    }
+  };
 
   // Audio Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -148,7 +159,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           <textarea
             rows={isCodeSnippet ? 3 : 2}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();

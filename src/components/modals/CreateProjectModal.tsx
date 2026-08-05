@@ -17,6 +17,7 @@ import {
   Paperclip,
   Upload,
   FileText,
+  Mail,
 } from "lucide-react";
 import { ProjectMember, ProjectFile } from "@/types";
 
@@ -508,9 +509,24 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
                         {/* Clients list */}
                         <div className="space-y-2">
-                          <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                            {clients.length} Client{clients.length !== 1 ? "s" : ""} Added
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                              {clients.length} Client{clients.length !== 1 ? "s" : ""} Added
+                            </p>
+                          </div>
+
+                          {clients.length > 0 && (
+                            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-[#006858] text-xs font-bold flex items-start gap-2.5 shadow-sm animate-in fade-in">
+                              <CheckCircle2 className="w-4.5 h-4.5 text-[#006858] shrink-0 mt-0.5" />
+                              <div className="space-y-0.5">
+                                <p className="font-black text-[#006858]">{clients.length} Client Added!</p>
+                                <p className="text-[11px] font-semibold text-emerald-800">
+                                  Email has been sent. Please verify. Or tell your clients please verify your account.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
                           {clients.length === 0 ? (
                             <div className="p-4 rounded-2xl border border-dashed border-slate-200 text-center text-xs text-slate-400 font-medium">
                               No clients added yet. Add clients above to enable direct messaging and call invites.
@@ -519,26 +535,32 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                             clients.map((c) => (
                               <div
                                 key={c.id}
-                                className="flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs"
+                                className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1.5"
                               >
-                                <div className="flex items-center gap-3">
-                                  <img
-                                    src={c.avatar}
-                                    alt={c.name}
-                                    className="w-8 h-8 rounded-full object-cover bg-emerald-50"
-                                  />
-                                  <div>
-                                    <p className="text-xs font-bold text-slate-800">{c.name}</p>
-                                    <p className="text-[10px] text-slate-400">{c.email} · <span className="text-[#006858] font-bold">{c.role}</span></p>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <img
+                                      src={c.avatar}
+                                      alt={c.name}
+                                      className="w-8 h-8 rounded-full object-cover bg-emerald-50"
+                                    />
+                                    <div>
+                                      <p className="text-xs font-bold text-slate-800">{c.name}</p>
+                                      <p className="text-[10px] text-slate-400">{c.email} · <span className="text-[#006858] font-bold">{c.role}</span></p>
+                                    </div>
                                   </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setClients(clients.filter((cl) => cl.id !== c.id))}
+                                    className="w-7 h-7 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setClients(clients.filter((cl) => cl.id !== c.id))}
-                                  className="w-7 h-7 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <div className="text-[10px] text-emerald-700 font-extrabold flex items-center gap-1 bg-emerald-50/80 px-2.5 py-1 rounded-xl border border-emerald-200/60">
+                                  <Mail className="w-3 h-3 text-[#006858] shrink-0" />
+                                  Email has been sent. Please verify. Or tell your clients please verify your account.
+                                </div>
                               </div>
                             ))
                           )}

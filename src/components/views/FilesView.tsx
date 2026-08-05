@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { FileText, Folder, HardDrive, Download, FileImage, FileSpreadsheet, File, FolderKanban } from "lucide-react";
 import { useProject } from "@/context/ProjectContext";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { TaskAttachment, ProjectFile } from "@/types";
 
 function getFileIcon(type: string) {
@@ -181,7 +182,13 @@ export const FilesView: React.FC = () => {
           </span>
         </div>
 
-        {fileList.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-14 rounded-2xl" />
+            <Skeleton className="h-14 rounded-2xl" />
+            <Skeleton className="h-14 rounded-2xl" />
+          </div>
+        ) : fileList.length === 0 ? (
           <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-2xl text-xs text-slate-400 font-bold space-y-1">
             <p>No project files found in MongoDB Database.</p>
             <p className="text-[10px] text-slate-400 font-normal">

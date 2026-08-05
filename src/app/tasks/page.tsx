@@ -8,18 +8,25 @@ import { TaskItem } from "@/types";
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery] = useState("");
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch("/api/tasks");
+      setLoading(true);
+      const res = await fetch("/api/tasks", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         setTasks(data);
       }
     } catch (err) {
       console.warn("Failed to fetch tasks from API:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,6 +90,7 @@ export default function TasksPage() {
     <WorkspaceShell>
       <KanbanView
         tasks={tasks}
+        loading={loading}
         searchQuery={searchQuery}
         onUpdateTask={handleUpdateTask}
         onDeleteTask={handleDeleteTask}

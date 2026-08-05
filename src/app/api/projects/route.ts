@@ -1,9 +1,20 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { connectToDatabase } from "@/lib/mongodb";
 import Project from "@/models/Project";
 import Channel from "@/models/Channel";
 import Activity from "@/models/Activity";
 import User from "@/models/User";
+import Invitation from "@/models/Invitation";
+import { generateAutoPassword, sendInvitationEmail } from "@/lib/nodemailer";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+};
 
 export async function GET(req: Request) {
   try {
@@ -19,18 +30,18 @@ export async function GET(req: Request) {
         const userInDb = await User.findOne({ email });
 
         // A user is a Client or Team Member ONLY if explicitly saved as type client/team in MongoDB and NOT a Leader
-        const isRestrictedUser =
-          userInDb &&
-          (userInDb.type === "client" || userInDb.type === "team") &&
-          userInDb.role !== "Leader" &&
-          userInDb.type !== "leader";
+        const roleLower = (userInDb?.role || "").toLowerCase();
+        const typeLower = (userInDb?.type || "").toLowerCase();
 
-        const isLeader = !isRestrictedUser;
+        const isLeader =
+          typeLower === "leader" ||
+          roleLower.includes("leader") ||
+          (!typeLower.includes("client") && !typeLower.includes("team") && !roleLower.includes("client") && !roleLower.includes("team"));
 
         if (!isLeader && userInDb) {
-          if (userInDb.type === "client") {
+          if (typeLower === "client" || roleLower.includes("client")) {
             query["clients.email"] = email;
-          } else if (userInDb.type === "team") {
+          } else if (typeLower === "team" || roleLower.includes("team")) {
             query["teamMembers.email"] = email;
           } else {
             query.$or = [
@@ -47,12 +58,12 @@ export async function GET(req: Request) {
         id: p._id ? p._id.toString() : p.id,
       }));
 
-      return NextResponse.json(formatted);
+      return NextResponse.json(formatted, { headers: NO_CACHE_HEADERS });
     }
-    return NextResponse.json([]);
+    return NextResponse.json([], { headers: NO_CACHE_HEADERS });
   } catch (error) {
     console.error("GET /api/projects error:", error);
-    return NextResponse.json([]);
+    return NextResponse.json([], { headers: NO_CACHE_HEADERS });
   }
 }
 
@@ -75,18 +86,78 @@ export async function POST(req: Request) {
       );
     }
 
+    const clientsList = Array.isArray(body.clients) ? body.clients : [];
+    const teamList = Array.isArray(body.teamMembers) ? body.teamMembers : [];
+
     const doc = await Project.create({
       name: body.name.trim(),
       description: body.description || "",
       status: body.status || "In Progress",
       progress: typeof body.progress === "number" ? body.progress : 0,
       tags: Array.isArray(body.tags) ? body.tags : ["Engineering"],
-      clients: Array.isArray(body.clients) ? body.clients : [],
-      teamMembers: Array.isArray(body.teamMembers) ? body.teamMembers : [],
+      clients: clientsList,
+      teamMembers: teamList,
       files: Array.isArray(body.files) ? body.files : [],
     });
 
     const projectIdStr = doc._id.toString();
+
+    // Auto-create User accounts for added Clients in MongoDB Atlas
+    for (const c of clientsList) {
+      if (c.email) {
+        const cleanEmail = c.email.trim().toLowerCase();
+        const existingUser = await User.findOne({ email: cleanEmail });
+        if (!existingUser) {
+          const autoPassword = generateAutoPassword();
+          const hashedPassword = await bcrypt.hash(autoPassword, 10);
+          await User.create({
+            name: c.name || cleanEmail.split("@")[0],
+            email: cleanEmail,
+            password: hashedPassword,
+            role: c.role || "Client Lead",
+            type: "client",
+            status: "Active",
+            isVerified: true,
+            avatar: c.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
+          });
+
+          try {
+            await sendInvitationEmail({
+              email: cleanEmail,
+              name: c.name || "Client",
+              role: c.role || "Client",
+              type: "client",
+              projectName: doc.name,
+              autoPassword,
+              token: `inv-${Date.now()}`,
+              baseUrl: "http://localhost:3000",
+            });
+          } catch (e) {}
+        }
+      }
+    }
+
+    // Auto-create User accounts for added Team Members in MongoDB Atlas
+    for (const tm of teamList) {
+      if (tm.email) {
+        const cleanEmail = tm.email.trim().toLowerCase();
+        const existingUser = await User.findOne({ email: cleanEmail });
+        if (!existingUser) {
+          const autoPassword = generateAutoPassword();
+          const hashedPassword = await bcrypt.hash(autoPassword, 10);
+          await User.create({
+            name: tm.name || cleanEmail.split("@")[0],
+            email: cleanEmail,
+            password: hashedPassword,
+            role: tm.role || "Team Member",
+            type: "team",
+            status: "Active",
+            isVerified: true,
+            avatar: tm.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
+          });
+        }
+      }
+    }
 
     // Auto-create Workspace Channel in MongoDB for this new project!
     const channelSlug = body.channelName
@@ -155,6 +226,30 @@ export async function PUT(req: Request) {
 
     if (!updated) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Provision User accounts for updated client or team list
+    if (Array.isArray(body.clients)) {
+      for (const c of body.clients) {
+        if (c.email) {
+          const cleanEmail = c.email.trim().toLowerCase();
+          const existingUser = await User.findOne({ email: cleanEmail });
+          if (!existingUser) {
+            const autoPassword = generateAutoPassword();
+            const hashedPassword = await bcrypt.hash(autoPassword, 10);
+            await User.create({
+              name: c.name || cleanEmail.split("@")[0],
+              email: cleanEmail,
+              password: hashedPassword,
+              role: c.role || "Client Lead",
+              type: "client",
+              status: "Active",
+              isVerified: true,
+              avatar: c.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
+            });
+          }
+        }
+      }
     }
 
     // Log activity

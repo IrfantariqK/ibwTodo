@@ -4,7 +4,7 @@ export interface ProjectMember {
   email: string;
   role: string;
   avatar: string;
-  type: "team" | "client";
+  type?: "team" | "client" | "leader";
 }
 
 export interface ProjectFile {
@@ -103,6 +103,10 @@ export interface ChatMessage {
   audioUrl?: string;
   audioDuration?: string;
   reactions?: any[];
+  seen?: boolean;
+  seenAt?: string;
+  seenBy?: string;
+  status?: "pending" | "sent" | "delivered" | "seen" | "failed";
   createdAt?: string;
 }
 

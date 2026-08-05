@@ -1,5 +1,56 @@
 import { NextResponse } from "next/server";
 
+// Helper function to auto-correct common spelling mistakes and clean up text
+function autoCorrectSpelling(text: string): string {
+  if (!text) return "";
+
+  const spellingCorrections: Record<string, string> = {
+    implet: "implement",
+    implemt: "implement",
+    implment: "implement",
+    auth: "authentication",
+    authen: "authentication",
+    mongdb: "MongoDB",
+    mongodb: "MongoDB",
+    desgn: "design",
+    dsgn: "design",
+    fixx: "fix",
+    fx: "fix",
+    servr: "server",
+    srver: "server",
+    feautre: "feature",
+    fature: "feature",
+    datbas: "database",
+    databse: "database",
+    reqst: "request",
+    bugg: "bug",
+    creat: "create",
+    usrs: "users-[#006858]",
+    prjct: "project",
+    projt: "project",
+    calndr: "calendar",
+    meting: "meeting",
+    meetng: "meeting",
+    tassk: "task",
+    tsks: "tasks",
+    schedul: "schedule",
+    optimz: "optimize",
+    refactr: "refactor",
+    integrat: "integrate",
+  };
+
+  let words = text.split(/\s+/);
+  words = words.map((w) => {
+    const cleanWord = w.toLowerCase().replace(/[^a-z]/g, "");
+    if (spellingCorrections[cleanWord]) {
+      return spellingCorrections[cleanWord];
+    }
+    return w;
+  });
+
+  return words.join(" ");
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -9,6 +60,15 @@ export async function POST(req: Request) {
     const apiKey = aiConfig?.apiKey || process.env.GEMINI_API_KEY || "";
     const customEndpoint = aiConfig?.endpoint || "http://localhost:11434/v1";
     const selectedModel = aiConfig?.model || "llama3.2";
+
+    const correctedInput = autoCorrectSpelling(prompt);
+
+    const systemInstructions = `You are an expert AI Workspace Assistant for TaskConnect.
+Your core tasks:
+1. Detect and correct any spelling mistakes in the user's input.
+2. Infer the intended meaning even if the input is short, informal, or misspelled.
+3. Form complete, grammatically correct, professional, and clear sentences suitable for task titles, task descriptions, code annotations, project scopes, or meeting agendas.
+4. Return ONLY the final corrected and expanded result without meta-talk or quotes.`;
 
     // 1. Localhost / Local Laptop AI (Ollama, LM Studio, LocalAI)
     if (provider === "local" || provider === "ollama" || provider === "lmstudio") {
@@ -20,13 +80,10 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             model: selectedModel,
             messages: [
-              {
-                role: "system",
-                content: "You are an AI Workspace Assistant for TaskConnect. Return ONLY concise, direct generated text without preamble.",
-              },
+              { role: "system", content: systemInstructions },
               {
                 role: "user",
-                content: `Generate response for task request type: "${type}". Context/Prompt: "${prompt}" ${context}`,
+                content: `Request type: "${type}". User Typed Input: "${prompt}". Corrected Context: "${correctedInput}". Format into complete, grammatically correct, professional output.`,
               },
             ],
             temperature: 0.7,
@@ -59,13 +116,10 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             model: selectedModel || "gpt-4o-mini",
             messages: [
-              {
-                role: "system",
-                content: "You are an AI Workspace Assistant for TaskConnect. Return ONLY concise generated text.",
-              },
+              { role: "system", content: systemInstructions },
               {
                 role: "user",
-                content: `Request type: "${type}". Prompt: "${prompt}". Context: "${context}"`,
+                content: `Request type: "${type}". User Input: "${prompt}". Please fix spelling mistakes, infer intended meaning, and write a complete, grammatically correct sentence.`,
               },
             ],
           }),
@@ -96,7 +150,7 @@ export async function POST(req: Request) {
                 {
                   parts: [
                     {
-                      text: `You are an AI Workspace Assistant for TaskConnect. Generate concise, professional text for type: "${type}". Prompt: "${prompt}". Context: "${context}". Return ONLY the text without quotes.`,
+                      text: `${systemInstructions}\n\nTask Type: "${type}". User Input: "${prompt}". Detect/correct spelling, understand intended meaning, and write a complete, grammatically correct, professional sentence.`,
                     },
                   ],
                 },
@@ -130,7 +184,8 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             model: selectedModel || "custom-model",
             messages: [
-              { role: "user", content: `Generate text for type "${type}". Prompt: "${prompt}"` },
+              { role: "system", content: systemInstructions },
+              { role: "user", content: `Generate text for "${type}". Prompt: "${prompt}"` },
             ],
           }),
         });
@@ -147,70 +202,63 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. Smart AI Generation Engine Fallback
+    // 5. Smart AI Generation Engine Fallback (with Auto-Correction)
     let generated = "";
+    const cleanPrompt = correctedInput || prompt;
+    const capitalized = cleanPrompt.charAt(0).toUpperCase() + cleanPrompt.slice(1);
 
     switch (type) {
       case "task_title": {
-        const titleTemplates = [
-          prompt ? `Implement ${prompt} module & API integration` : "Optimize cloud database queries & indexing",
-          prompt ? `Design & refine ${prompt} UI components` : "Refactor user authentication & session handling",
-          prompt ? `Audit ${prompt} performance & fix memory leaks` : "Setup automated CI/CD deployment pipeline",
-        ];
-        generated = titleTemplates[Math.floor(Math.random() * titleTemplates.length)];
+        generated = prompt
+          ? `Implement ${capitalized} module with full backend integration`
+          : "Optimize cloud database queries & indexing";
         break;
       }
 
       case "task_description": {
         generated = prompt
-          ? `### Objective\nComplete implementation and testing for **${prompt}**.\n\n### Key Deliverables\n- Build high-performance frontend UI components.\n- Connect backend API endpoints with validation.\n- Ensure full mobile responsiveness and accessibility.\n- Write unit tests covering edge cases.`
+          ? `### Objective\nDevelop and integrate **${capitalized}** with complete end-to-end functionality.\n\n### Key Deliverables\n- Build responsive, accessible UI components.\n- Connect secure backend API endpoints with validation.\n- Verify cross-browser compatibility and execute unit tests.`
           : `### Objective\nEnhance overall application responsiveness and state management.\n\n### Deliverables\n1. Review data models and API response payloads.\n2. Add loading states and micro-interactions.\n3. Validate cross-browser compatibility.`;
         break;
       }
 
       case "task_annotation": {
         generated = prompt
-          ? `🔍 AI Suggested Code Changes / Annotations for "${prompt}":\n- Update border-radius to 16px and set primary brand color to #006858.\n- Refactor useEffect dependency array to avoid unnecessary re-renders.\n- Add error boundary fallback for API timeout scenarios.`
-          : `🔍 AI Suggested Code Changes / Annotations:\n- Ensure non-null checks before property dereferencing.\n- Sanitize user input prior to sending POST request body.\n- Standardize button focus state ring styles.`;
+          ? `🔍 AI Code Review & Annotation for "${capitalized}":\n- Correct spelling and syntax in configuration file.\n- Ensure non-null state checks before dereferencing properties.\n- Standardize button focus state ring styles.`
+          : `🔍 AI Suggested Code Changes & Annotations:\n- Ensure non-null checks before property dereferencing.\n- Sanitize user input prior to sending POST request body.\n- Standardize button focus state ring styles.`;
         break;
       }
 
       case "project_name": {
-        const projNames = [
-          prompt ? `${prompt} Enterprise Platform` : "Nexus Enterprise Dashboard",
-          prompt ? `Aero ${prompt} Engine` : "OmniChannel Communications Suite",
-          prompt ? `Vanguard ${prompt} Portal` : "Atlas Cloud Infrastructure Redesign",
-        ];
-        generated = projNames[Math.floor(Math.random() * projNames.length)];
+        generated = prompt
+          ? `${capitalized} Enterprise Platform`
+          : "Nexus Enterprise Dashboard";
         break;
       }
 
       case "project_description": {
         generated = prompt
-          ? `Strategic initiative to build **${prompt}**. Objectives include improving team productivity, establishing scalable MongoDB architecture, and enabling real-time workspace collaboration for clients and team members.`
+          ? `Strategic initiative to design, build, and deploy **${capitalized}**. Objectives include boosting team productivity, establishing scalable MongoDB architecture, and enabling real-time workspace collaboration for clients and team members.`
           : "End-to-end workspace transformation project aimed at delivering real-time task management, role-based access control, integrated file storage, and instant workspace messaging.";
         break;
       }
 
       case "event_title": {
-        const eventTitles = [
-          prompt ? `${prompt} Alignment & Demo Sync` : "Sprint 25 Architecture & Planning Sync",
-          prompt ? `Client Review: ${prompt}` : "Quarterly Engineering & Roadmap Review",
-          prompt ? `${prompt} Standup & Retrospective` : "Design System & UI Polish Workshop",
-        ];
-        generated = eventTitles[Math.floor(Math.random() * eventTitles.length)];
+        generated = prompt
+          ? `${capitalized} Architecture & Planning Sync`
+          : "Sprint 25 Architecture & Planning Sync";
         break;
       }
 
       case "event_description": {
         generated = prompt
-          ? `📌 Meeting Agenda for "${prompt}":\n1. Progress review & milestone completion status (10 mins)\n2. Technical bottlenecks & code review feedback (15 mins)\n3. Action item assignments and next sprint deadlines (10 mins)`
+          ? `📌 Meeting Agenda for "${capitalized}":\n1. Review progress and current milestone deliverables (10 mins)\n2. Address technical bottlenecks and code review feedback (15 mins)\n3. Assign action items and establish next sprint deadlines (10 mins)`
           : `📌 Meeting Agenda:\n1. Sprint progress walkthrough and deliverable review\n2. Open discussion on technical challenges and dependencies\n3. Q&A and next steps assignment`;
         break;
       }
 
       default:
-        generated = prompt || "AI generated content successfully.";
+        generated = capitalized || "AI generated content successfully.";
     }
 
     return NextResponse.json({ result: generated, source: "Built-in Workspace AI Engine" });

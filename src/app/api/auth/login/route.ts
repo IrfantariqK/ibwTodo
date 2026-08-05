@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { connectToDatabase } from "@/lib/mongodb";
 import User from "@/models/User";
+import Project from "@/models/Project";
+import Invitation from "@/models/Invitation";
 
 const JWT_SECRET = process.env.JWT_SECRET || "ibwtech_taskconnect_secret";
 
@@ -28,44 +30,85 @@ export async function POST(req: Request) {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    // Find user by email in MongoDB Atlas ONLY
-    const userDoc = await User.findOne({ email: cleanEmail });
+    // 1. Find user by email in MongoDB Atlas User collection
+    let userDoc = await User.findOne({ email: cleanEmail });
 
+    // 2. If userDoc does NOT exist in User collection, check if assigned in Projects or Invitations!
     if (!userDoc) {
-      return NextResponse.json(
-        { error: "No account found with this email. Please sign up or accept your project invite first." },
-        { status: 401 }
-      );
-    }
+      const projectWithClient = await Project.findOne({
+        $or: [
+          { "clients.email": cleanEmail },
+          { "teamMembers.email": cleanEmail },
+        ],
+      }).lean();
 
-    // Check if account email is verified
-    if (userDoc.status === "Pending Verification" || userDoc.isVerified === false) {
-      return NextResponse.json(
-        {
-          error: "Your email is not verified yet. Please enter the 6-digit verification code sent to your email.",
-          requireOtp: true,
+      const invitationDoc = await Invitation.findOne({ email: cleanEmail }).lean();
+
+      if (projectWithClient || invitationDoc) {
+        // Auto-provision user account on the fly for added Client / Team Member
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const isClient =
+          (invitationDoc as any)?.type === "client" ||
+          (projectWithClient as any)?.clients?.some((c: any) => c.email?.toLowerCase().trim() === cleanEmail);
+
+        const memberName =
+          (invitationDoc as any)?.name ||
+          (projectWithClient as any)?.clients?.find((c: any) => c.email?.toLowerCase().trim() === cleanEmail)?.name ||
+          (projectWithClient as any)?.teamMembers?.find((m: any) => m.email?.toLowerCase().trim() === cleanEmail)?.name ||
+          cleanEmail.split("@")[0];
+
+        const memberRole =
+          (invitationDoc as any)?.role ||
+          (isClient ? "Client Lead" : "Team Member");
+
+        const memberType = isClient ? "client" : "team";
+
+        userDoc = await User.create({
+          name: memberName,
           email: cleanEmail,
-        },
-        { status: 403 }
-      );
+          password: hashedPassword,
+          role: memberRole,
+          type: memberType,
+          status: "Active",
+          isVerified: true,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
+        });
+      } else {
+        return NextResponse.json(
+          { error: "No account found with this email. Please sign up or accept your project invite first." },
+          { status: 401 }
+        );
+      }
     }
 
-    // Check account status if set
-    if (userDoc.status === "Pending Acceptance") {
-      return NextResponse.json(
-        { error: "Your project invitation is pending. Please click the invitation link sent to your email to activate your account." },
-        { status: 403 }
-      );
-    }
+    // 3. Verify password with bcrypt
+    let isPasswordValid = await bcrypt.compare(password, userDoc.password);
 
-    // Verify password with bcrypt
-    const isPasswordValid = await bcrypt.compare(password, userDoc.password);
+    // If initial bcrypt check fails, check if password matches autoPassword from invitation
+    if (!isPasswordValid) {
+      const invitationDoc = await Invitation.findOne({ email: cleanEmail }).lean();
+      if (invitationDoc && (invitationDoc as any).autoPassword === password) {
+        // Re-hash and save matching password
+        userDoc.password = await bcrypt.hash(password, 10);
+        userDoc.status = "Active";
+        userDoc.isVerified = true;
+        await userDoc.save();
+        isPasswordValid = true;
+      }
+    }
 
     if (!isPasswordValid) {
       return NextResponse.json(
-        { error: "Incorrect password. Please try again." },
+        { error: "Incorrect password. Please check your credentials or invitation email." },
         { status: 401 }
       );
+    }
+
+    // Activate account if password was valid
+    if (userDoc.status !== "Active" || !userDoc.isVerified) {
+      userDoc.status = "Active";
+      userDoc.isVerified = true;
+      await userDoc.save();
     }
 
     const isClient = userDoc.type === "client" || userDoc.role?.toLowerCase().includes("client");

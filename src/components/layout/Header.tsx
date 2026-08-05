@@ -16,7 +16,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
 }) => {
   const router = useRouter();
-  const { projects, activeProject, activeProjectId, setActiveProjectId, userRole, userType } = useProject();
+  const { projects, activeProject, activeProjectId, setActiveProjectId, isLeader, isClient, isTeam } = useProject();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showProjectMenu, setShowProjectMenu] = useState(false);
   const [user, setUser] = useState<{
@@ -59,21 +59,13 @@ export const Header: React.FC<HeaderProps> = ({
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       localStorage.removeItem("taskconnect_user");
+      localStorage.removeItem("taskconnect_active_project");
       router.push("/login");
       router.refresh();
     } catch (err) {
       console.error("Logout error:", err);
     }
   };
-
-  // Determine if current user is a Client vs Leader
-  const isClient =
-    user.type === "client" ||
-    userType === "client" ||
-    user.role?.toLowerCase().includes("client") ||
-    userRole?.toLowerCase().includes("client");
-
-  const isLeader = !isClient;
 
   return (
     <header className="h-16 shrink-0 bg-white px-8 flex items-center justify-between sticky top-0 z-20 pt-2 border-b border-slate-100 font-sans">
@@ -90,17 +82,18 @@ export const Header: React.FC<HeaderProps> = ({
           />
         </div>
 
-        {/* Active Project Switcher: Interactive Dropdown for Leader ONLY, Static Label for Client/Team */}
+        {/* Active Project Switcher */}
         {isLeader ? (
+          /* LEADER DROPDOWN: Includes "All Projects" + All Leader's Projects */
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowProjectMenu(!showProjectMenu)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-50 text-[#006858] border border-emerald-200/80 hover:bg-emerald-100/70 transition-all text-xs font-bold cursor-pointer shadow-2xs"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-emerald-50 text-[#006858] border border-emerald-200/80 hover:bg-emerald-100/70 transition-all text-xs font-bold cursor-pointer shadow-2xs"
             >
               <Briefcase className="w-3.5 h-3.5" />
               <span className="max-w-[140px] truncate">
-                {activeProject ? activeProject.name : "All Projects"}
+                {activeProjectId === "all" || !activeProject ? "All Projects" : activeProject.name}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-[#006858]/70" />
             </button>
@@ -108,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
             {showProjectMenu && (
               <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl p-2 shadow-xl border border-slate-200 z-50 animate-in fade-in slide-in-from-top-2">
                 <div className="px-3 py-1.5 border-b border-slate-100 mb-1 flex items-center justify-between">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Select Active Project</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Leader Workspace Selector</p>
                   <span className="text-[10px] font-bold text-[#006858] bg-emerald-50 px-2 py-0.5 rounded-full">{projects.length} Total</span>
                 </div>
 
@@ -146,11 +139,9 @@ export const Header: React.FC<HeaderProps> = ({
                       >
                         <div className="truncate pr-2">
                           <p className="truncate">{p.name}</p>
-                          {p.clients && p.clients.length > 0 && (
-                            <p className={`text-[10px] font-medium ${isSel ? "text-white/80" : "text-slate-400"}`}>
-                              {p.clients.length} Client{p.clients.length > 1 ? "s" : ""} · {p.teamMembers?.length || 0} Team
-                            </p>
-                          )}
+                          <p className={`text-[10px] font-medium ${isSel ? "text-white/80" : "text-slate-400"}`}>
+                            {p.clients?.length || 0} Client{p.clients?.length !== 1 ? "s" : ""} · {p.teamMembers?.length || 0} Team
+                          </p>
                         </div>
                         {isSel && <Check className="w-3.5 h-3.5 shrink-0" />}
                       </button>
@@ -160,11 +151,59 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
           </div>
+        ) : projects.length > 1 ? (
+          /* CLIENT / TEAM MEMBER WITH MULTIPLE ASSIGNED PROJECTS */
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowProjectMenu(!showProjectMenu)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-50 text-[#006858] border border-emerald-200/80 hover:bg-emerald-100/70 transition-all text-xs font-bold cursor-pointer shadow-2xs"
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              <span className="max-w-[140px] truncate">
+                {activeProject ? activeProject.name : projects[0]?.name}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-[#006858]/70" />
+            </button>
+
+            {showProjectMenu && (
+              <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl p-2 shadow-xl border border-slate-200 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="px-3 py-1.5 border-b border-slate-100 mb-1 flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Assigned Projects</p>
+                  <span className="text-[10px] font-bold text-[#006858] bg-emerald-50 px-2 py-0.5 rounded-full">{projects.length} Assigned</span>
+                </div>
+
+                <div className="max-h-56 overflow-y-auto space-y-0.5">
+                  {projects.map((p) => {
+                    const pId = p.id || p._id || "";
+                    const isSel = (activeProject?.id || activeProject?._id) === pId;
+                    return (
+                      <button
+                        key={pId}
+                        type="button"
+                        onClick={() => {
+                          setActiveProjectId(pId);
+                          setShowProjectMenu(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${
+                          isSel ? "bg-[#006858] text-white" : "text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="truncate pr-2">{p.name}</span>
+                        {isSel && <Check className="w-3.5 h-3.5 shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-50 text-[#006858] border border-emerald-200/80 text-xs font-bold">
+          /* CLIENT / TEAM MEMBER ASSIGNED TO 1 PROJECT */
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-emerald-50 text-[#006858] border border-emerald-200/80 text-xs font-bold shadow-2xs">
             <Briefcase className="w-3.5 h-3.5" />
-            <span className="max-w-[160px] truncate">
-              Project: {activeProject ? activeProject.name : (projects[0]?.name || "Assigned Workspace")}
+            <span className="max-w-[180px] truncate">
+              Project: {activeProject ? activeProject.name : (projects[0]?.name || "Assigned Project")}
             </span>
           </div>
         )}

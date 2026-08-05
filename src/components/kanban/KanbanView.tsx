@@ -15,11 +15,14 @@ import {
   List,
 } from "lucide-react";
 import { TaskItem } from "@/types";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { KanbanColumn } from "./KanbanColumn";
 import { TaskDetailModal } from "./TaskDetailModal";
+import { useProject } from "@/context/ProjectContext";
 
 interface KanbanViewProps {
   tasks: TaskItem[];
+  loading?: boolean;
   searchQuery: string;
   onUpdateTask: (task: TaskItem) => void;
   onDeleteTask: (id: string) => void;
@@ -29,20 +32,40 @@ interface KanbanViewProps {
 
 export const KanbanView: React.FC<KanbanViewProps> = ({
   tasks,
+  loading = false,
   searchQuery,
   onUpdateTask,
   onDeleteTask,
   onMoveStatus,
   onOpenCreateTask,
 }) => {
+  const { projects: contextProjects, activeProject, activeProjectId, isLeader } = useProject();
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [localSearch, setLocalSearch] = useState<string>("");
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
 
+  // Filter tasks by project access
+  let allowedProjects = contextProjects;
+  if (!isLeader) {
+    allowedProjects = activeProject ? [activeProject] : contextProjects;
+  } else if (activeProject && activeProjectId !== "all") {
+    allowedProjects = [activeProject];
+  }
+
+  const allowedProjectIds = new Set(allowedProjects.map((p) => (p.id || p._id || "").toString()));
+
+  const scopedTasks = tasks.filter((t) => {
+    const pId = (t.projectId || "").toString();
+    if (activeProject && activeProjectId !== "all") {
+      return pId === (activeProject.id || activeProject._id || "").toString();
+    }
+    return allowedProjectIds.has(pId) || allowedProjects.length === 0;
+  });
+
   const effectiveSearch = (searchQuery || localSearch).toLowerCase().trim();
 
-  const filteredTasks = tasks.filter((task) => {
+  const filteredTasks = scopedTasks.filter((task) => {
     const matchesSearch =
       !effectiveSearch ||
       task.title.toLowerCase().includes(effectiveSearch) ||
@@ -55,7 +78,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   const todoTasks = filteredTasks.filter((t) => t.status === "todo");
   const inProgressTasks = filteredTasks.filter((t) => t.status === "in-progress");
   const doneTasks = filteredTasks.filter((t) => t.status === "done");
-  const urgentCount = tasks.filter((t) => t.priority === "urgent" || t.priority === "high").length;
+  const urgentCount = scopedTasks.filter((t) => t.priority === "urgent" || t.priority === "high").length;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans text-[#0F172A]">
@@ -66,7 +89,9 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
             <div className="w-8 h-8 rounded-xl bg-[#006858] text-white flex items-center justify-center shadow-md shadow-[#006858]/20">
               <KanbanIcon className="w-4 h-4" />
             </div>
-            <span className="text-xs font-bold text-[#006858] uppercase tracking-wider">Task Workspace</span>
+            <span className="text-xs font-bold text-[#006858] uppercase tracking-wider">
+              {activeProject ? `Project: ${activeProject.name}` : isLeader ? "All Projects Board" : "Task Workspace"}
+            </span>
           </div>
           <h1 className="text-3xl font-black text-[#0F172A] tracking-tight">
             Task Workspace Board
@@ -117,9 +142,9 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       {/* 2. Real-Time Workspace Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Tasks", count: tasks.length, icon: <Layers className="w-4 h-4 text-[#006858]" />, bg: "bg-emerald-50", border: "border-emerald-100" },
-          { label: "To Do", count: tasks.filter(t => t.status === "todo").length, icon: <Clock className="w-4 h-4 text-slate-600" />, bg: "bg-slate-50", border: "border-slate-200" },
-          { label: "In Progress", count: tasks.filter(t => t.status === "in-progress").length, icon: <Clock className="w-4 h-4 text-[#006858]" />, bg: "bg-emerald-50/50", border: "border-emerald-100" },
+          { label: "Total Tasks", count: scopedTasks.length, icon: <Layers className="w-4 h-4 text-[#006858]" />, bg: "bg-emerald-50", border: "border-emerald-100" },
+          { label: "To Do", count: scopedTasks.filter(t => t.status === "todo").length, icon: <Clock className="w-4 h-4 text-slate-600" />, bg: "bg-slate-50", border: "border-slate-200" },
+          { label: "In Progress", count: scopedTasks.filter(t => t.status === "in-progress").length, icon: <Clock className="w-4 h-4 text-[#006858]" />, bg: "bg-emerald-50/50", border: "border-emerald-100" },
           { label: "High / Urgent", count: urgentCount, icon: <AlertCircle className="w-4 h-4 text-purple-600" />, bg: "bg-purple-50", border: "border-purple-100" },
         ].map((stat, i) => (
           <div key={i} className={`p-4 rounded-2xl border ${stat.bg} ${stat.border} flex items-center justify-between shadow-2xs`}>
@@ -170,7 +195,24 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       </div>
 
       {/* 4. Board Grid View OR Compact List View */}
-      {viewMode === "kanban" ? (
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+          <div className="p-4 rounded-3xl bg-slate-100/70 border border-slate-200 space-y-4">
+            <Skeleton className="h-6 w-24 rounded-lg" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+          </div>
+          <div className="p-4 rounded-3xl bg-slate-100/70 border border-slate-200 space-y-4">
+            <Skeleton className="h-6 w-32 rounded-lg" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+          </div>
+          <div className="p-4 rounded-3xl bg-slate-100/70 border border-slate-200 space-y-4">
+            <Skeleton className="h-6 w-28 rounded-lg" />
+            <Skeleton className="h-28 rounded-2xl" />
+          </div>
+        </div>
+      ) : viewMode === "kanban" ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           <KanbanColumn
             title="To Do"

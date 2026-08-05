@@ -3,6 +3,14 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Event from "@/models/Event";
 import Activity from "@/models/Activity";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+};
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -19,12 +27,12 @@ export async function GET(req: Request) {
         ...e,
         id: e._id ? e._id.toString() : e.id,
       }));
-      return NextResponse.json(formatted);
+      return NextResponse.json(formatted, { headers: NO_CACHE_HEADERS });
     }
-    return NextResponse.json([]);
+    return NextResponse.json([], { headers: NO_CACHE_HEADERS });
   } catch (error) {
     console.error("GET /api/calendar error:", error);
-    return NextResponse.json([]);
+    return NextResponse.json([], { headers: NO_CACHE_HEADERS });
   }
 }
 

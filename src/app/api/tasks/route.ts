@@ -3,6 +3,14 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Task from "@/models/Task";
 import Activity from "@/models/Activity";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+};
+
 export async function GET() {
   try {
     const db = await connectToDatabase();
@@ -13,12 +21,12 @@ export async function GET() {
         ...t,
         id: t._id ? t._id.toString() : t.id,
       }));
-      return NextResponse.json(formatted);
+      return NextResponse.json(formatted, { headers: NO_CACHE_HEADERS });
     }
-    return NextResponse.json([]);
+    return NextResponse.json([], { headers: NO_CACHE_HEADERS });
   } catch (error) {
     console.error("GET /api/tasks error:", error);
-    return NextResponse.json([]);
+    return NextResponse.json([], { headers: NO_CACHE_HEADERS });
   }
 }
 

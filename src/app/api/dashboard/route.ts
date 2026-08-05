@@ -5,23 +5,34 @@ import Event from "@/models/Event";
 import Project from "@/models/Project";
 import Activity from "@/models/Activity";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+};
+
 export async function GET() {
   try {
     const db = await connectToDatabase();
 
     if (!db) {
-      return NextResponse.json({
-        totalTasks: 0,
-        completedTasks: 0,
-        taskEfficiency: "0%",
-        teamVelocity: "0 pts/wk",
-        focusTime: "0h",
-        focusPercent: 0,
-        projects: [],
-        upcomingMeetings: [],
-        urgentTasks: [],
-        pulseFeed: [],
-      });
+      return NextResponse.json(
+        {
+          totalTasks: 0,
+          completedTasks: 0,
+          taskEfficiency: "0%",
+          teamVelocity: "0 pts/wk",
+          focusTime: "0h",
+          focusPercent: 0,
+          projects: [],
+          upcomingMeetings: [],
+          urgentTasks: [],
+          pulseFeed: [],
+        },
+        { headers: NO_CACHE_HEADERS }
+      );
     }
 
     // Fetch ONLY real live documents from MongoDB Atlas
@@ -50,23 +61,26 @@ export async function GET() {
       (t: any) => t.priority === "high" || t.priority === "urgent"
     );
 
-    return NextResponse.json({
-      totalTasks: totalTasksCount,
-      completedTasks: completedTasksCount,
-      taskEfficiency: `${efficiencyCalc}%`,
-      teamVelocity: `${completedTasksCount * 12} pts/wk`,
-      focusTime: `${focusHours}h`,
-      focusPercent: focusPercent,
-      projects: mongoProjects,
-      upcomingMeetings: mongoEvents,
-      urgentTasks: urgentTasks,
-      pulseFeed: mongoActivities,
-    });
+    return NextResponse.json(
+      {
+        totalTasks: totalTasksCount,
+        completedTasks: completedTasksCount,
+        taskEfficiency: `${efficiencyCalc}%`,
+        teamVelocity: `${completedTasksCount * 12} pts/wk`,
+        focusTime: `${focusHours}h`,
+        focusPercent: focusPercent,
+        projects: mongoProjects,
+        upcomingMeetings: mongoEvents,
+        urgentTasks: urgentTasks,
+        pulseFeed: mongoActivities,
+      },
+      { headers: NO_CACHE_HEADERS }
+    );
   } catch (error) {
     console.error("MongoDB Dashboard API error:", error);
     return NextResponse.json(
       { error: "Failed to fetch MongoDB dashboard data" },
-      { status: 500 }
+      { status: 500, headers: NO_CACHE_HEADERS }
     );
   }
 }
