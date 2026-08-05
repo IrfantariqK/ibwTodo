@@ -107,6 +107,9 @@ export interface ChatMessage {
   seenAt?: string;
   seenBy?: string;
   status?: "pending" | "sent" | "delivered" | "seen" | "failed";
+  isEdited?: boolean;
+  isDeletedForEveryone?: boolean;
+  deletedForUsers?: string[];
   createdAt?: string;
 }
 

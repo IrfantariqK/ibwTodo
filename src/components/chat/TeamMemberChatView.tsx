@@ -55,6 +55,33 @@ export const TeamMemberChatView: React.FC = () => {
     });
   }, []);
 
+  const handleSocketMessageEdited = useCallback((editedMsg: ChatMessage) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === editedMsg.id || (m._id && m._id === editedMsg._id)
+          ? { ...m, content: editedMsg.content, isEdited: true }
+          : m
+      )
+    );
+  }, []);
+
+  const handleSocketMessageDeleted = useCallback(
+    (payload: { messageId: string; mode: "me" | "everyone"; userEmail?: string; message?: ChatMessage }) => {
+      setMessages((prev) => {
+        if (payload.mode === "everyone") {
+          return prev.map((m) =>
+            m.id === payload.messageId || (m._id && m._id === payload.messageId)
+              ? { ...m, content: "This message was deleted", isDeletedForEveryone: true, isEdited: false }
+              : m
+          );
+        } else {
+          return prev.filter((m) => m.id !== payload.messageId && m._id !== payload.messageId);
+        }
+      });
+    },
+    []
+  );
+
   const handleSocketMessagesSeen = useCallback(() => {
     setMessages((prev) =>
       prev.map((m) => ({
@@ -75,9 +102,45 @@ export const TeamMemberChatView: React.FC = () => {
     channelId: activeRecipient ? "" : activeChannel,
     recipientId: activeRecipient ? activeRecipient.email : "",
     onNewMessage: handleSocketNewMessage,
+    onMessageEdited: handleSocketMessageEdited,
+    onMessageDeleted: handleSocketMessageDeleted,
     onMessagesSeen: handleSocketMessagesSeen,
     onTypingStateChange: handleSocketTypingState,
   });
+
+  const handleEditMessage = async (messageId: string, newContent: string) => {
+    try {
+      const res = await fetch("/api/chat", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId,
+          content: newContent,
+          userEmail: currentUser.email,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        handleSocketMessageEdited(data);
+      }
+    } catch (err) {
+      console.warn("Failed to edit message:", err);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string, mode: "me" | "everyone") => {
+    try {
+      const res = await fetch(
+        `/api/chat?messageId=${encodeURIComponent(messageId)}&mode=${mode}&userEmail=${encodeURIComponent(currentUser.email)}`,
+        { method: "DELETE" }
+      );
+      if (res.ok) {
+        handleSocketMessageDeleted({ messageId, mode, userEmail: currentUser.email });
+      }
+    } catch (err) {
+      console.warn("Failed to delete message:", err);
+    }
+  };
 
   const activeRecipientEmail = activeRecipient?.email || "";
   const activeProjectId = activeProject ? (activeProject.id || activeProject._id || "") : "";
@@ -360,6 +423,8 @@ export const TeamMemberChatView: React.FC = () => {
             messages={messages}
             currentUserEmail={currentUser.email}
             onRetryMessage={handleRetryMessage}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
           />
         )}
 

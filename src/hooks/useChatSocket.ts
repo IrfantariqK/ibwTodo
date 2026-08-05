@@ -9,6 +9,8 @@ interface UseChatSocketOptions {
   channelId?: string;
   recipientId?: string;
   onNewMessage?: (message: ChatMessage) => void;
+  onMessageEdited?: (message: ChatMessage) => void;
+  onMessageDeleted?: (payload: { messageId: string; mode: "me" | "everyone"; userEmail?: string; message?: ChatMessage }) => void;
   onMessagesSeen?: (payload: { channelId: string; recipientId: string; userEmail: string }) => void;
   onTypingStateChange?: (typingUser: string | null) => void;
 }
@@ -19,6 +21,8 @@ export function useChatSocket({
   channelId = "general",
   recipientId = "",
   onNewMessage,
+  onMessageEdited,
+  onMessageDeleted,
   onMessagesSeen,
   onTypingStateChange,
 }: UseChatSocketOptions) {
@@ -82,7 +86,6 @@ export function useChatSocket({
 
         if (data.type === "message:new" && data.payload) {
           const msg: ChatMessage = data.payload;
-          // Check if message belongs to current channel or DM
           const isCurrentScope = recipientId
             ? msg.recipientId === userEmail || msg.sender?.email === recipientId
             : msg.channelId === channelId;
@@ -92,10 +95,21 @@ export function useChatSocket({
           }
         }
 
+        if (data.type === "message:edited" && data.payload) {
+          if (onMessageEdited) {
+            onMessageEdited(data.payload);
+          }
+        }
+
+        if (data.type === "message:deleted" && data.payload) {
+          if (onMessageDeleted) {
+            onMessageDeleted(data.payload);
+          }
+        }
+
         if (data.type === "typing" && data.payload) {
           const { user, userEmail: senderEmail, channelId: tChannel, recipientId: tRecipient, isTyping } = data.payload;
 
-          // Don't show typing indicator for oneself
           if (senderEmail && senderEmail.toLowerCase() === userEmail.toLowerCase()) return;
 
           const isMatchingScope = recipientId
@@ -127,7 +141,7 @@ export function useChatSocket({
 
     eventSource.onerror = () => {
       if (eventSource.readyState === EventSource.CLOSED) {
-        // SSE closed, connection will automatically retry or stay safe
+        // SSE closed
       }
     };
 
@@ -135,7 +149,7 @@ export function useChatSocket({
       eventSource.close();
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     };
-  }, [channelId, recipientId, userEmail, onNewMessage, onMessagesSeen, onTypingStateChange]);
+  }, [channelId, recipientId, userEmail, onNewMessage, onMessageEdited, onMessageDeleted, onMessagesSeen, onTypingStateChange]);
 
   return {
     sendTyping,

@@ -1,13 +1,31 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatMessage } from "@/types";
-import { Play, Pause, Mic, Volume2, Check, CheckCheck, Clock, AlertTriangle, ArrowDown, Copy, CheckCircle2, Sparkles, Globe } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Mic,
+  Volume2,
+  Check,
+  CheckCheck,
+  Clock,
+  AlertTriangle,
+  ArrowDown,
+  Copy,
+  CheckCircle2,
+  Edit3,
+  Trash2,
+  Ban,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MessageListProps {
   messages: ChatMessage[];
   currentUserEmail?: string;
   onRetryMessage?: (msg: ChatMessage) => void;
+  onEditMessage?: (msgId: string, newContent: string) => Promise<void>;
+  onDeleteMessage?: (msgId: string, mode: "me" | "everyone") => Promise<void>;
 }
 
 const TranslatedTextBubble: React.FC<{ content: string; isOutgoing?: boolean }> = ({ content, isOutgoing }) => {
@@ -63,44 +81,44 @@ const TranslatedTextBubble: React.FC<{ content: string; isOutgoing?: boolean }> 
     };
   }, [content]);
 
-  const displayText = showOriginal || !translated ? content : translated;
+  if (translated && !showOriginal) {
+    return (
+      <div className="space-y-1">
+        <p className="whitespace-pre-wrap">{translated}</p>
+        <div className="flex items-center gap-1.5 pt-0.5 text-[9px] opacity-80">
+          <span className="font-extrabold uppercase tracking-wider">Translated ({targetLang})</span>
+          <span>•</span>
+          <button
+            onClick={() => setShowOriginal(true)}
+            className="underline hover:opacity-100 cursor-pointer font-bold"
+          >
+            Show Original
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1">
-      <p className="whitespace-pre-wrap">{displayText}</p>
-
-      {translated && (
-        <div
-          className={cn(
-            "flex items-center gap-1.5 pt-1.5 mt-1 border-t text-[9px] font-bold transition-all",
-            isOutgoing ? "border-white/20 text-emerald-100" : "border-slate-100 text-slate-500"
-          )}
+      <p className="whitespace-pre-wrap">{content}</p>
+      {translated && showOriginal && (
+        <button
+          onClick={() => setShowOriginal(false)}
+          className="text-[9px] opacity-80 underline hover:opacity-100 cursor-pointer font-bold pt-0.5 block"
         >
-          <Sparkles className={cn("w-3 h-3 shrink-0", isOutgoing ? "text-amber-300" : "text-[#006858]")} />
-          <span className="truncate">
-            {showOriginal ? "Original Text" : `AI Translated to ${targetLang}`}
-          </span>
-          <button
-            type="button"
-            onClick={() => setShowOriginal((prev) => !prev)}
-            className={cn(
-              "ml-auto font-black underline hover:opacity-100 cursor-pointer shrink-0",
-              isOutgoing ? "text-white" : "text-[#006858]"
-            )}
-          >
-            {showOriginal ? "Show Translation" : "Show Original"}
-          </button>
-        </div>
+          View Translation ({targetLang})
+        </button>
       )}
     </div>
   );
 };
 
-const VoiceNotePlayer: React.FC<{ audioUrl: string; duration?: string; isOutgoing?: boolean }> = ({
-  audioUrl,
-  duration = "0:05",
-  isOutgoing = false,
-}) => {
+const VoiceNotePlayer: React.FC<{
+  audioUrl: string;
+  duration?: string;
+  isOutgoing?: boolean;
+}> = ({ audioUrl, duration = "0:05", isOutgoing = false }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -150,7 +168,6 @@ const VoiceNotePlayer: React.FC<{ audioUrl: string; duration?: string; isOutgoin
         {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
       </button>
 
-      {/* Waveform Graphic */}
       <div className="flex-1 space-y-1">
         <div className="flex items-center gap-1">
           <Mic className={cn("w-3 h-3", isOutgoing ? "text-emerald-200" : "text-[#006858]")} />
@@ -218,6 +235,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   messages,
   currentUserEmail = "",
   onRetryMessage,
+  onEditMessage,
+  onDeleteMessage,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -225,14 +244,20 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [unreadCount, setUnreadCount] = useState(0);
   const prevMessagesLength = useRef(messages.length);
 
+  // Editing & Deleting State
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editInputText, setEditInputText] = useState("");
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [deleteConfirmMsg, setDeleteConfirmMsg] = useState<ChatMessage | null>(null);
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
+
   const userEmailNormalized = (currentUserEmail || "").toLowerCase().trim();
 
-  // Scroll listener to manage auto-scroll state
   const handleScroll = () => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
-    
+
     if (isAtBottom) {
       setIsScrolledUp(false);
       setUnreadCount(0);
@@ -257,11 +282,49 @@ export const MessageList: React.FC<MessageListProps> = ({
         setUnreadCount((prev) => prev + (messages.length - prevMessagesLength.current));
       }
     } else {
-      // Initial mount or complete refresh
       scrollToBottom(false);
     }
     prevMessagesLength.current = messages.length;
   }, [messages]);
+
+  const startEditMessage = (msg: ChatMessage) => {
+    const msgId = (msg.id || msg._id || "").toString();
+    setEditingMsgId(msgId);
+    setEditInputText(msg.content);
+  };
+
+  const cancelEdit = () => {
+    setEditingMsgId(null);
+    setEditInputText("");
+  };
+
+  const submitEdit = async (msgId: string) => {
+    if (!editInputText.trim() || !onEditMessage) return;
+    setIsSubmittingEdit(true);
+    try {
+      await onEditMessage(msgId, editInputText.trim());
+      setEditingMsgId(null);
+      setEditInputText("");
+    } catch (err) {
+      console.warn("Failed to edit message:", err);
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  const executeDelete = async (mode: "me" | "everyone") => {
+    if (!deleteConfirmMsg || !onDeleteMessage) return;
+    const msgId = (deleteConfirmMsg.id || deleteConfirmMsg._id || "").toString();
+    setIsSubmittingDelete(true);
+    try {
+      await onDeleteMessage(msgId, mode);
+      setDeleteConfirmMsg(null);
+    } catch (err) {
+      console.warn("Failed to delete message:", err);
+    } finally {
+      setIsSubmittingDelete(false);
+    }
+  };
 
   if (messages.length === 0) {
     return (
@@ -287,8 +350,9 @@ export const MessageList: React.FC<MessageListProps> = ({
       >
         <AnimatePresence initial={false}>
           {messages.map((msg, idx) => {
+            const msgId = (msg.id || msg._id || "").toString();
             const senderName = typeof msg.sender === "object" ? msg.sender.name : msg.sender;
-            const senderEmail = typeof msg.sender === "object" ? msg.sender.email || "" : "";
+            const senderEmail = (typeof msg.sender === "object" ? msg.sender.email || "" : "").toLowerCase().trim();
             const senderAvatar =
               typeof msg.sender === "object"
                 ? msg.sender.avatar || (msg as any).avatar
@@ -297,15 +361,17 @@ export const MessageList: React.FC<MessageListProps> = ({
 
             const isOutgoing =
               Boolean(userEmailNormalized) &&
-              (senderEmail.toLowerCase().trim() === userEmailNormalized ||
+              (senderEmail === userEmailNormalized ||
                 senderName.toLowerCase().includes("leader") ||
                 senderName.toLowerCase().includes("you"));
 
+            const isEditing = editingMsgId === msgId;
+            const isDeletedEveryone = Boolean(msg.isDeletedForEveryone);
             const isPending = msg.status === "pending";
             const isFailed = msg.status === "failed";
             const isDelivered = msg.status === "delivered" || msg.status === "sent" || (!msg.status && !isPending && !isFailed);
 
-            const uniqueKey = (msg.id || msg._id || "msg").toString() + "-" + idx;
+            const uniqueKey = msgId || `msg-${idx}`;
 
             return (
               <motion.div
@@ -314,7 +380,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
                 className={cn(
-                  "flex items-end gap-2.5 max-w-[85%] sm:max-w-[75%]",
+                  "flex items-end gap-2.5 max-w-[85%] sm:max-w-[75%] group/msg relative",
                   isOutgoing ? "ml-auto flex-row-reverse" : "mr-auto"
                 )}
               >
@@ -328,8 +394,8 @@ export const MessageList: React.FC<MessageListProps> = ({
                   className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 shadow-2xs mb-1 bg-white"
                 />
 
-                <div className={cn("flex flex-col space-y-1", isOutgoing ? "items-end" : "items-start")}>
-                  {/* Header metadata */}
+                <div className={cn("flex flex-col space-y-1 relative", isOutgoing ? "items-end" : "items-start")}>
+                  {/* Header metadata & Action Triggers */}
                   <div className="flex items-center gap-1.5 px-1 text-[10px]">
                     <span className="font-extrabold text-slate-700">{senderName}</span>
                     {senderRole && (
@@ -337,34 +403,91 @@ export const MessageList: React.FC<MessageListProps> = ({
                         {senderRole}
                       </span>
                     )}
-                    <span className="text-slate-400 font-mono">
+                    <span className="text-slate-400 font-mono flex items-center gap-1">
                       {msg.timestamp || msg.time || "Just now"}
+                      {msg.isEdited && !isDeletedEveryone && (
+                        <span className="text-slate-400 italic text-[9px] font-semibold">(Edited)</span>
+                      )}
                     </span>
+
+                    {/* Sender Edit & Delete Triggers (Visible on hover for outgoing messages) */}
+                    {isOutgoing && !isDeletedEveryone && !isPending && (
+                      <div className="opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1 ml-2 bg-slate-100/80 backdrop-blur-xs px-1.5 py-0.5 rounded-full border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => startEditMessage(msg)}
+                          title="Edit Message"
+                          className="p-1 text-slate-600 hover:text-[#006858] hover:bg-white rounded-md transition-colors cursor-pointer"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmMsg(msg)}
+                          title="Delete Message"
+                          className="p-1 text-slate-600 hover:text-red-600 hover:bg-white rounded-md transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Message Bubble */}
-                  <div
-                    className={cn(
-                      "p-3.5 rounded-2xl shadow-xs transition-all text-xs font-medium leading-relaxed break-words",
-                      isOutgoing
-                        ? "bg-[#006858] text-white rounded-br-none"
-                        : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-none",
-                      isPending && "opacity-70 animate-pulse",
-                      isFailed && "bg-rose-50 text-rose-900 border-rose-200"
-                    )}
-                  >
-                    {/* Content rendering */}
-                    {msg.isVoiceNote && msg.audioUrl ? (
-                      <VoiceNotePlayer audioUrl={msg.audioUrl} duration={msg.audioDuration} isOutgoing={isOutgoing} />
-                    ) : msg.isCodeSnippet ? (
-                      <CodeSnippetBlock code={msg.content} isOutgoing={isOutgoing} />
-                    ) : (
-                      <TranslatedTextBubble content={msg.content} isOutgoing={isOutgoing} />
-                    )}
-                  </div>
+                  {/* Message Content or Inline Edit Box */}
+                  {isEditing ? (
+                    <div className="p-3 bg-white border border-[#006858] rounded-2xl shadow-md w-full max-w-sm space-y-2">
+                      <textarea
+                        value={editInputText}
+                        onChange={(e) => setEditInputText(e.target.value)}
+                        rows={2}
+                        className="w-full text-xs text-slate-900 font-medium bg-slate-50 p-2 rounded-xl border border-slate-200 focus:outline-hidden focus:border-[#006858] resize-none"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => submitEdit(msgId)}
+                          disabled={isSubmittingEdit || !editInputText.trim()}
+                          className="px-3 py-1 rounded-lg text-xs font-extrabold bg-[#006858] text-white hover:bg-[#005245] transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {isSubmittingEdit ? "Saving..." : "Save Changes"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : isDeletedEveryone ? (
+                    <div className="p-3 rounded-2xl border border-slate-200 bg-slate-100 text-slate-500 italic text-xs flex items-center gap-2 font-medium">
+                      <Ban className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>This message was deleted</span>
+                    </div>
+                  ) : (
+                    <div
+                      className={cn(
+                        "p-3.5 rounded-2xl shadow-xs transition-all text-xs font-medium leading-relaxed break-words",
+                        isOutgoing
+                          ? "bg-[#006858] text-white rounded-br-none"
+                          : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-none",
+                        isPending && "opacity-70 animate-pulse",
+                        isFailed && "bg-rose-50 text-rose-900 border-rose-200"
+                      )}
+                    >
+                      {msg.isVoiceNote && msg.audioUrl ? (
+                        <VoiceNotePlayer audioUrl={msg.audioUrl} duration={msg.audioDuration} isOutgoing={isOutgoing} />
+                      ) : msg.isCodeSnippet ? (
+                        <CodeSnippetBlock code={msg.content} isOutgoing={isOutgoing} />
+                      ) : (
+                        <TranslatedTextBubble content={msg.content} isOutgoing={isOutgoing} />
+                      )}
+                    </div>
+                  )}
 
                   {/* Status indicators for outgoing messages */}
-                  {isOutgoing && (
+                  {isOutgoing && !isDeletedEveryone && (
                     <div className="flex items-center gap-1 text-[9px] px-1 font-bold">
                       {isPending && (
                         <span className="text-amber-600 flex items-center gap-1">
@@ -405,6 +528,63 @@ export const MessageList: React.FC<MessageListProps> = ({
         <div ref={bottomRef} />
       </div>
 
+      {/* WhatsApp-Style Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirmMsg && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 space-y-5 text-center"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto shadow-inner">
+                <Trash2 className="w-6 h-6" />
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-slate-900 text-base">Delete Message?</h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Choose how you want to delete this message:
+                </p>
+                <div className="p-3 bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 italic border border-slate-200 mt-2 truncate">
+                  "{deleteConfirmMsg.content}"
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => executeDelete("everyone")}
+                  disabled={isSubmittingDelete}
+                  className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmittingDelete ? "Deleting..." : "Delete for Everyone"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => executeDelete("me")}
+                  disabled={isSubmittingDelete}
+                  className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Delete for Me
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmMsg(null)}
+                  disabled={isSubmittingDelete}
+                  className="w-full py-2 px-4 text-slate-500 hover:text-slate-800 font-semibold text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Floating "New Messages ↓" Scroll Indicator */}
       <AnimatePresence>
         {isScrolledUp && (
@@ -428,4 +608,3 @@ export const MessageList: React.FC<MessageListProps> = ({
     </div>
   );
 };
-

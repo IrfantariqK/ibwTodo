@@ -25,8 +25,12 @@ export async function GET(req: Request) {
 
     const query: any = {};
 
+    // Filter out messages deleted specifically for this requesting user
+    if (senderEmail) {
+      query.deletedForUsers = { $ne: senderEmail };
+    }
+
     if (recipientId) {
-      // Direct Conversation between two users (Ignore projectId filter for DMs)
       const regexRecipient = new RegExp(`^${recipientId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
       if (senderEmail) {
         const regexSender = new RegExp(`^${senderEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i");
@@ -99,9 +103,11 @@ export async function POST(req: Request) {
       isVoiceNote: !!body.isVoiceNote,
       audioUrl: body.audioUrl || "",
       audioDuration: body.audioDuration || "0:00",
+      isEdited: false,
+      isDeletedForEveryone: false,
+      deletedForUsers: [],
     });
 
-    // Log activity
     try {
       await Activity.create({
         user: senderObj.name,
@@ -128,5 +134,123 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("POST /api/chat error:", error?.message || error);
     return NextResponse.json({ error: "Failed to post message to MongoDB" }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/chat
+ * Edit a sent message
+ */
+export async function PATCH(req: Request) {
+  try {
+    const { messageId, content, userEmail } = await req.json();
+    if (!messageId || !content || !content.trim()) {
+      return NextResponse.json({ error: "Message ID and content are required" }, { status: 400 });
+    }
+
+    const db = await connectToDatabase();
+    if (!db) return NextResponse.json({ error: "Database connection failed" }, { status: 503 });
+
+    const msg = await Message.findById(messageId);
+    if (!msg) {
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
+
+    // Permission check: Sender verification
+    const senderEmail = (msg.sender?.email || "").toLowerCase().trim();
+    const reqEmail = (userEmail || "").toLowerCase().trim();
+    if (senderEmail && reqEmail && senderEmail !== reqEmail) {
+      return NextResponse.json({ error: "Only the message sender can edit this message" }, { status: 403 });
+    }
+
+    msg.content = content.trim();
+    msg.isEdited = true;
+    await msg.save();
+
+    const updated = {
+      ...msg.toObject(),
+      id: msg._id.toString(),
+    };
+
+    try {
+      chatEmitter.emit("chat:event", { type: "message:edited", payload: updated });
+    } catch (e) {}
+
+    return NextResponse.json(updated, { headers: NO_CACHE_HEADERS });
+  } catch (error: any) {
+    console.error("PATCH /api/chat error:", error);
+    return NextResponse.json({ error: "Failed to edit message" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/chat
+ * WhatsApp-style Delete for Me & Delete for Everyone
+ */
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const messageId = searchParams.get("messageId");
+    const mode = searchParams.get("mode") || "everyone";
+    const userEmail = (searchParams.get("userEmail") || "").toLowerCase().trim();
+
+    if (!messageId) {
+      return NextResponse.json({ error: "Message ID required" }, { status: 400 });
+    }
+
+    const db = await connectToDatabase();
+    if (!db) return NextResponse.json({ error: "Database connection failed" }, { status: 503 });
+
+    const msg = await Message.findById(messageId);
+    if (!msg) {
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
+
+    const senderEmail = (msg.sender?.email || "").toLowerCase().trim();
+
+    if (mode === "everyone") {
+      // Permission check: only sender can delete for everyone
+      if (senderEmail && userEmail && senderEmail !== userEmail) {
+        return NextResponse.json({ error: "Only the message sender can delete this message for everyone" }, { status: 403 });
+      }
+
+      msg.isDeletedForEveryone = true;
+      msg.content = "This message was deleted";
+      msg.isEdited = false;
+      await msg.save();
+
+      const updated = {
+        ...msg.toObject(),
+        id: msg._id.toString(),
+      };
+
+      try {
+        chatEmitter.emit("chat:event", {
+          type: "message:deleted",
+          payload: { messageId, mode: "everyone", message: updated },
+        });
+      } catch (e) {}
+
+      return NextResponse.json(updated, { headers: NO_CACHE_HEADERS });
+    } else {
+      // Delete for Me
+      if (userEmail) {
+        await Message.findByIdAndUpdate(messageId, {
+          $addToSet: { deletedForUsers: userEmail },
+        });
+      }
+
+      try {
+        chatEmitter.emit("chat:event", {
+          type: "message:deleted",
+          payload: { messageId, mode: "me", userEmail },
+        });
+      } catch (e) {}
+
+      return NextResponse.json({ success: true, messageId, mode: "me" }, { headers: NO_CACHE_HEADERS });
+    }
+  } catch (error: any) {
+    console.error("DELETE /api/chat error:", error);
+    return NextResponse.json({ error: "Failed to delete message" }, { status: 500 });
   }
 }

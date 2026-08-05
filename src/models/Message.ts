@@ -21,6 +21,9 @@ export interface IMessage extends Document {
   seenAt?: Date;
   seenBy?: string;
   status?: "pending" | "sent" | "delivered" | "seen";
+  isEdited?: boolean;
+  isDeletedForEveryone?: boolean;
+  deletedForUsers?: string[];
   createdAt: Date;
 }
 
@@ -51,6 +54,9 @@ const MessageSchema: Schema = new Schema(
     seenAt: { type: Date },
     seenBy: { type: String, default: "" },
     status: { type: String, enum: ["pending", "sent", "delivered", "seen"], default: "delivered" },
+    isEdited: { type: Boolean, default: false },
+    isDeletedForEveryone: { type: Boolean, default: false },
+    deletedForUsers: { type: [String], default: [] },
   },
   { timestamps: true }
 );
