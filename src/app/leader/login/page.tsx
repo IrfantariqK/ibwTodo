@@ -62,11 +62,11 @@ export default function LeaderLoginPage() {
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
         className="hidden lg:flex lg:w-[50%] relative overflow-hidden flex-col justify-between p-12"
-        style={{ background: "linear-gradient(135deg, #2e1065 0%, #581c87 50%, #7e22ce 100%)" }}
+        style={{ background: "linear-gradient(135deg, #003830 0%, #006858 50%, #00897b 100%)" }}
       >
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20">
-            <Crown className="w-4 h-4 text-purple-200" />
+            <Crown className="w-4 h-4 text-emerald-200" />
             <span className="text-xs font-bold text-white/90">Leader & Admin Workspace</span>
           </div>
         </div>
@@ -80,31 +80,31 @@ export default function LeaderLoginPage() {
             <h1 className="text-5xl font-black text-white leading-tight">
               Project Leader
               <br />
-              <span className="text-purple-200">Management</span>
+              <span className="text-emerald-200">Management</span>
             </h1>
-            <p className="text-purple-100 text-sm mt-4 max-w-md font-medium leading-relaxed">
+            <p className="text-emerald-100 text-sm mt-4 max-w-md font-medium leading-relaxed">
               Full workspace administration, project creation, client invitations, team management, and workspace overview analytics.
             </p>
           </motion.div>
 
           <div className="space-y-3 pt-4">
             <div className="flex items-center gap-3 text-white text-xs font-semibold">
-              <CheckCircle className="w-4 h-4 text-purple-300 shrink-0" />
+              <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />
               <span>Full project creation & member/client assignment</span>
             </div>
             <div className="flex items-center gap-3 text-white text-xs font-semibold">
-              <CheckCircle className="w-4 h-4 text-purple-300 shrink-0" />
+              <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />
               <span>Cross-project overview & sprint metrics</span>
             </div>
             <div className="flex items-center gap-3 text-white text-xs font-semibold">
-              <CheckCircle className="w-4 h-4 text-purple-300 shrink-0" />
+              <CheckCircle className="w-4 h-4 text-emerald-300 shrink-0" />
               <span>Omnichannel communication with team & clients</span>
             </div>
           </div>
         </div>
 
         <div className="relative z-10 flex items-center gap-2 text-white/70 text-xs font-semibold">
-          <ShieldCheck className="w-4 h-4 text-purple-300" />
+          <ShieldCheck className="w-4 h-4 text-emerald-300" />
           <span>Leader Authentication · TaskConnect Enterprise</span>
         </div>
       </motion.div>
@@ -118,7 +118,7 @@ export default function LeaderLoginPage() {
           className="w-full max-w-md space-y-8 bg-white p-8 md:p-10 rounded-3xl border border-slate-200/90 shadow-xl"
         >
           <div>
-            <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-900 flex items-center justify-center mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#006858] border border-emerald-200/80 flex items-center justify-center mb-4">
               <Crown className="w-6 h-6" />
             </div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">Leader Sign In</h2>
@@ -146,7 +146,7 @@ export default function LeaderLoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="leader@company.com"
                   required
-                  className="w-full bg-[#EEF2F6] text-xs text-slate-900 font-bold placeholder-slate-400 pl-11 pr-4 py-3 rounded-2xl border border-slate-200/80 focus:bg-white focus:ring-2 focus:ring-purple-700 transition-all"
+                  className="w-full bg-[#EEF2F6] text-xs text-slate-900 font-bold placeholder-slate-400 pl-11 pr-4 py-3 rounded-2xl border border-slate-200/80 focus:bg-white focus:ring-2 focus:ring-[#006858] transition-all"
                 />
               </div>
             </div>
@@ -163,7 +163,7 @@ export default function LeaderLoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-[#EEF2F6] text-xs text-slate-900 font-bold placeholder-slate-400 pl-11 pr-11 py-3 rounded-2xl border border-slate-200/80 focus:bg-white focus:ring-2 focus:ring-purple-700 transition-all"
+                  className="w-full bg-[#EEF2F6] text-xs text-slate-900 font-bold placeholder-slate-400 pl-11 pr-11 py-3 rounded-2xl border border-slate-200/80 focus:bg-white focus:ring-2 focus:ring-[#006858] transition-all"
                 />
                 <button
                   type="button"
@@ -178,7 +178,7 @@ export default function LeaderLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 bg-purple-900 hover:bg-purple-950 text-white font-extrabold text-xs rounded-2xl transition-all shadow-md shadow-purple-900/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full py-3.5 px-4 bg-[#006858] hover:bg-[#005245] text-white font-extrabold text-xs rounded-2xl transition-all shadow-md shadow-[#006858]/30 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {loading ? "Authenticating..." : "Sign In to Leader Portal"}
               {!loading && <ArrowRight className="w-4 h-4" />}
@@ -189,7 +189,7 @@ export default function LeaderLoginPage() {
             <p className="text-xs text-slate-500 font-semibold">
               Looking for client or team login?
             </p>
-            <div className="flex items-center justify-center gap-4 text-xs font-bold text-purple-900">
+            <div className="flex items-center justify-center gap-4 text-xs font-bold text-[#006858]">
               <Link href="/client/login" className="hover:underline">Client Portal Login</Link>
               <span>·</span>
               <Link href="/member/login" className="hover:underline">Team Member Login</Link>

@@ -41,15 +41,15 @@ export const LeaderSidebar: React.FC<LeaderSidebarProps> = ({ onOpenCreateTask }
       <div>
         {/* Leader Portal Brand */}
         <Link href="/leader/dashboard" className="flex items-center gap-2.5 px-3 py-3 mb-4 group cursor-pointer">
-          <div className="w-8 h-8 rounded-xl bg-purple-900 flex items-center justify-center text-white font-black text-sm shadow-md shadow-purple-900/30 group-hover:scale-105 transition-transform">
-            <Crown className="w-4 h-4 text-purple-200" />
+          <div className="w-8 h-8 rounded-xl bg-[#006858] flex items-center justify-center text-white font-black text-sm shadow-md shadow-[#006858]/30 group-hover:scale-105 transition-transform">
+            <Crown className="w-4 h-4 text-emerald-100" />
           </div>
           <div>
             <h1 className="font-extrabold text-lg text-slate-900 tracking-tight flex items-center leading-none">
               TaskConnect
-              <span className="w-2 h-2 rounded-full bg-purple-600 ml-1" />
+              <span className="w-2 h-2 rounded-full bg-[#006858] ml-1" />
             </h1>
-            <span className="text-[10px] font-extrabold uppercase text-purple-700 tracking-wider">
+            <span className="text-[10px] font-extrabold uppercase text-[#006858] tracking-wider">
               Leader / Admin Portal
             </span>
           </div>
@@ -68,14 +68,14 @@ export const LeaderSidebar: React.FC<LeaderSidebarProps> = ({ onOpenCreateTask }
                 className={cn(
                   "w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-2xl text-sm font-semibold transition-all duration-200 relative cursor-pointer",
                   isTabActive
-                    ? "bg-white text-purple-950 shadow-sm font-bold border-2 border-purple-800/70"
+                    ? "bg-white text-[#006858] shadow-sm font-bold border-2 border-[#006858]"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                 )}
               >
                 <Icon
                   className={cn(
                     "w-4 h-4 transition-colors",
-                    isTabActive ? "text-purple-800" : "text-slate-400"
+                    isTabActive ? "text-[#006858]" : "text-slate-400"
                   )}
                 />
                 <span>{item.label}</span>
@@ -86,18 +86,18 @@ export const LeaderSidebar: React.FC<LeaderSidebarProps> = ({ onOpenCreateTask }
       </div>
 
       {/* Leader Action Card */}
-      <div className="p-4 rounded-3xl bg-gradient-to-br from-purple-900 via-indigo-950 to-slate-900 text-white shadow-lg shadow-purple-900/20 relative overflow-hidden">
-        <div className="text-[10px] font-black uppercase tracking-wider text-purple-300 mb-1">
+      <div className="p-4 rounded-3xl bg-gradient-to-br from-[#006858] via-[#004d40] to-slate-900 text-white shadow-lg shadow-[#006858]/20 relative overflow-hidden">
+        <div className="text-[10px] font-black uppercase tracking-wider text-emerald-300 mb-1">
           PROJECT MANAGEMENT
         </div>
-        <p className="text-xs text-purple-100 leading-snug font-medium mb-3">
+        <p className="text-xs text-emerald-100 leading-snug font-medium mb-3">
           Manage workspace, invite clients & create projects.
         </p>
         <button
           onClick={onOpenCreateTask}
-          className="w-full py-2 px-3 rounded-xl bg-white text-purple-950 font-bold text-xs hover:bg-purple-50 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+          className="w-full py-2 px-3 rounded-xl bg-white text-[#006858] font-bold text-xs hover:bg-emerald-50 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
         >
-          <Plus className="w-3.5 h-3.5 text-purple-800" /> Create Task
+          <Plus className="w-3.5 h-3.5 text-[#006858]" /> Create Task
         </button>
       </div>
     </aside>
