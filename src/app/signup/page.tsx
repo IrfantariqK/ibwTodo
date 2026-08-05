@@ -308,8 +308,8 @@ export default function SignupPage() {
                 <h2 className="text-2xl font-black text-[#0F172A]">Get Started</h2>
                 <p className="text-xs text-slate-500 font-medium mt-1">
                   Already have an account?{" "}
-                  <Link href="/login" className="text-[#006858] font-bold hover:underline">
-                    Sign In →
+                  <Link href="/leader/login" className="text-[#006858] font-bold hover:underline">
+                    Sign in here
                   </Link>
                 </p>
               </motion.div>

@@ -190,7 +190,7 @@ export default function MemberLoginPage() {
             <div className="flex items-center justify-center gap-4 text-xs font-bold text-purple-700">
               <Link href="/client/login" className="hover:underline">Client Portal Login</Link>
               <span>·</span>
-              <Link href="/login" className="hover:underline">Leader Login</Link>
+              <Link href="/leader/login" className="hover:underline">Leader Login</Link>
             </div>
           </div>
         </motion.div>

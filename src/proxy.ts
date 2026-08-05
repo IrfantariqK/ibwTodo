@@ -6,7 +6,6 @@ export function proxy(request: NextRequest) {
 
   // Public paths that do not require authentication
   const isPublicPath =
-    pathname === "/login" ||
     pathname === "/signup" ||
     pathname === "/accept-invite" ||
     pathname.startsWith("/leader/login") ||
@@ -20,7 +19,6 @@ export function proxy(request: NextRequest) {
   const isLogoutRequested = searchParams.get("logout") === "true";
 
   const isLoginPath =
-    pathname === "/login" ||
     pathname === "/signup" ||
     pathname.startsWith("/leader/login") ||
     pathname.startsWith("/client/login") ||

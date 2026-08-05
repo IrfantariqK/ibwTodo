@@ -79,10 +79,10 @@ function AcceptInviteContent() {
             </div>
 
             <Link
-              href="/login"
+              href="/leader/login"
               className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl transition-all shadow-md"
             >
-              Go to Login Page
+              Go to Leader Login
             </Link>
           </div>
         )}
@@ -134,7 +134,10 @@ function AcceptInviteContent() {
 
             <button
               type="button"
-              onClick={() => router.push(`/login?email=${encodeURIComponent(inviteData?.email || "")}`)}
+              onClick={() => {
+                const targetLogin = inviteData?.type === "client" ? "/client/login" : inviteData?.type === "team" ? "/member/login" : "/leader/login";
+                router.push(`${targetLogin}?email=${encodeURIComponent(inviteData?.email || "")}`);
+              }}
               className="w-full flex items-center justify-center gap-2 py-4 px-6 bg-[#006858] hover:bg-[#005246] text-white text-xs font-extrabold rounded-2xl transition-all shadow-lg hover:shadow-xl active:scale-[0.99] cursor-pointer"
             >
               <span>Proceed to Login & Workspace</span>

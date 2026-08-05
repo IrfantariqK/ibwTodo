@@ -191,7 +191,7 @@ export default function ClientLoginPage() {
             <div className="flex items-center justify-center gap-4 text-xs font-bold text-[#006858]">
               <Link href="/member/login" className="hover:underline">Team Member Login</Link>
               <span>·</span>
-              <Link href="/login" className="hover:underline">Leader Login</Link>
+              <Link href="/leader/login" className="hover:underline">Leader Login</Link>
             </div>
           </div>
         </motion.div>
