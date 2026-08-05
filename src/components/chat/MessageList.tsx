@@ -20,6 +20,15 @@ const VoiceNotePlayer: React.FC<{ audioUrl: string; duration?: string; isOutgoin
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   const togglePlay = () => {
     if (!audioRef.current) {
       audioRef.current = new Audio(audioUrl);
@@ -240,7 +249,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                   <div className="flex items-center gap-1.5 px-1 text-[10px]">
                     <span className="font-extrabold text-slate-700">{senderName}</span>
                     {senderRole && (
-                      <span className="font-bold text-[#006858] bg-emerald-50 px-1.5 py-0.2 rounded text-[9px]">
+                      <span className="font-bold text-[#006858] bg-emerald-50 px-1.5 py-0.5 rounded text-[9px]">
                         {senderRole}
                       </span>
                     )}
@@ -325,7 +334,7 @@ export const MessageList: React.FC<MessageListProps> = ({
             <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
             <span>New Messages</span>
             {unreadCount > 0 && (
-              <span className="ml-1 bg-white text-[#006858] px-1.5 py-0.2 rounded-full text-[10px] font-black">
+              <span className="ml-1 bg-white text-[#006858] px-1.5 py-0.5 rounded-full text-[10px] font-black">
                 {unreadCount}
               </span>
             )}

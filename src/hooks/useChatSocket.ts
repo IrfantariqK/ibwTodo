@@ -122,6 +122,12 @@ export function useChatSocket({
       }
     };
 
+    eventSource.onerror = () => {
+      if (eventSource.readyState === EventSource.CLOSED) {
+        // SSE closed, connection will automatically retry or stay safe
+      }
+    };
+
     return () => {
       eventSource.close();
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
